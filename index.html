@@ -178,6 +178,17 @@ body{font-family:var(--f-body);min-height:100vh;padding-top:env(safe-area-inset-
     <span class="err" id="lgErr" role="alert"></span>
     <button class="btn primary" type="submit" id="lgBtn">Đăng nhập</button>
     <button class="linkbtn" type="button" id="lgForgot">Quên mật khẩu?</button>
+    <button class="linkbtn" type="button" id="lgToReg">Chưa có tài khoản? Đăng ký</button>
+  </form>
+  <form class="login" id="regForm" hidden>
+    <h1>Đăng ký tài khoản</h1>
+    <p>Sau khi đăng ký, quản trị app duyệt thì anh/chị mới dùng được.</p>
+    <label class="f">Họ tên<input id="rgTen" required></label>
+    <label class="f">Email<input id="rgEmail" type="email" autocomplete="username" required></label>
+    <label class="f">Mật khẩu (ít nhất 8 ký tự)<input id="rgPass" type="password" autocomplete="new-password" minlength="8" required></label>
+    <span class="err" id="rgErr" role="alert"></span>
+    <button class="btn primary" type="submit" id="rgBtn">Đăng ký</button>
+    <button class="linkbtn" type="button" id="rgBack">Quay lại đăng nhập</button>
   </form>
   <form class="login" id="newPassForm" hidden>
     <h1>Đặt mật khẩu mới</h1>
@@ -285,13 +296,12 @@ body{font-family:var(--f-body);min-height:100vh;padding-top:env(safe-area-inset-
     <p class="muted" style="max-width:680px;margin-top:0">Tài khoản riêng của app kiểm tra hồ sơ, không liên quan app Công việc KHTH. Chỉ người có trong danh sách và đang bật mới đăng nhập được.</p>
     <div class="panel" style="max-width:680px;padding:0" id="cbList"></div>
     <form class="panel" id="tkForm" style="max-width:680px;margin-top:16px">
-      <h2>Thêm tài khoản</h2>
-      <div class="row2"><label class="f" style="flex:1">Họ tên<input id="tkTen" required></label><label class="f" style="flex:1">Email<input id="tkEmail" type="email" required></label></div>
-      <div class="row2"><label class="f" style="flex:1">Mật khẩu tạm (ít nhất 8 ký tự)<input id="tkPass" type="text" minlength="8" autocomplete="off"></label>
-        <label class="f" style="width:160px">Vai trò<select id="tkVai"><option value="can_bo">Cán bộ</option><option value="quan_tri">Quản trị</option></select></label></div>
-      <p class="muted" style="margin:4px 0 8px;font-size:12.5px">Đưa mật khẩu tạm cho cán bộ; họ có thể đổi bằng “Quên mật khẩu?”. Nếu email đã có tài khoản app Công việc thì không cần mật khẩu, người đó đăng nhập bằng mật khẩu cũ.</p>
+      <h2>Thêm người đã có tài khoản</h2>
+      <p class="muted" style="margin:0 0 8px;font-size:12.5px">Cán bộ mới tự bấm “Đăng ký” ở trang đăng nhập, rồi anh/chị bấm “Duyệt” ở danh sách trên. Người đã có tài khoản app Công việc KHTH thì thêm bằng email ở đây, họ dùng mật khẩu cũ.</p>
+      <div class="row2"><label class="f" style="flex:1">Họ tên<input id="tkTen" required></label><label class="f" style="flex:1">Email<input id="tkEmail" type="email" required></label>
+        <label class="f" style="width:140px">Vai trò<select id="tkVai"><option value="can_bo">Cán bộ</option><option value="quan_tri">Quản trị</option></select></label></div>
       <span class="err" id="tkErr" role="alert"></span>
-      <button class="btn primary" type="submit" id="tkBtn">Tạo tài khoản</button>
+      <button class="btn primary" type="submit" id="tkBtn">Thêm</button>
     </form>
     <div class="panel" style="max-width:680px;margin-top:16px">
       <h2>Nạp dữ liệu cũ</h2>

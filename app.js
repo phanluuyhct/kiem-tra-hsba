@@ -57,6 +57,15 @@ $('newPassForm').addEventListener('submit',async e=>{e.preventDefault();const {e
   if(error){$('npErr').textContent=error.message;return}recovery=false;$('newPassForm').hidden=true;$('loginForm').hidden=false;toast('Đã đổi mật khẩu');start();});
 document.querySelectorAll('[data-logout]').forEach(b=>b.addEventListener('click',async()=>{await sb.auth.signOut();location.hash='';location.reload()}));
 
+$('lgToReg').addEventListener('click',()=>{$('loginForm').hidden=true;$('regForm').hidden=false;$('rgEmail').value=$('lgEmail').value});
+$('rgBack').addEventListener('click',()=>{$('regForm').hidden=true;$('loginForm').hidden=false});
+$('regForm').addEventListener('submit',async e=>{e.preventDefault();$('rgErr').textContent='';$('rgBtn').disabled=true;
+  const {data,error}=await sb.auth.signUp({email:$('rgEmail').value.trim(),password:$('rgPass').value,options:{data:{app:'hsba',full_name:$('rgTen').value.trim()},emailRedirectTo:location.origin}});
+  $('rgBtn').disabled=false;
+  if(error){$('rgErr').textContent=/registered|exists/i.test(error.message)?'Email này đã có tài khoản (có thể là app Công việc KHTH). Hãy đăng nhập bằng mật khẩu cũ và nhờ quản trị thêm vào app.':error.message;return}
+  if(data.user&&Array.isArray(data.user.identities)&&!data.user.identities.length){$('rgErr').textContent='Email này đã có tài khoản (có thể là app Công việc KHTH). Hãy đăng nhập bằng mật khẩu cũ và nhờ quản trị thêm vào app.';return}
+  if(data.session){start();return}
+  $('rgErr').textContent='Đã đăng ký. Mở email để xác nhận, sau đó chờ quản trị app duyệt.'});
 sb.auth.onAuthStateChange((ev,session)=>{
   if(ev==='PASSWORD_RECOVERY'){recovery=true;screen('scrLogin');$('loginForm').hidden=true;$('newPassForm').hidden=false;return}
   if(ev==='SIGNED_IN'&&!me&&!recovery)start();
@@ -69,7 +78,7 @@ async function start(){
   if(!session){screen('scrLogin');return}
   if(started)return;started=true;me=session.user;
   const {data:prof}=await sb.from('hsba_tai_khoan').select('user_id,ho_ten,vai_tro,hoat_dong').eq('user_id',me.id).maybeSingle();
-  meProfile=prof;if(!prof||!prof.hoat_dong){started=false;screen('scrNoAccess');return}
+  meProfile=prof;if(!prof||!prof.hoat_dong){started=false;$('naText').textContent=prof?'Tài khoản đang chờ quản trị app duyệt. Khi được duyệt, anh/chị đăng nhập lại là dùng được.':'Tài khoản của anh/chị chưa được cấp quyền dùng app kiểm tra hồ sơ bệnh án. Nhờ quản trị app thêm ở tab “Tài khoản”.';screen('scrNoAccess');return}
   isManager=prof.vai_tro==='quan_tri';
   $('tabCanBo').hidden=!isManager;$('meName').textContent=prof.ho_ten||me.email;
   screen('scrApp');
@@ -356,32 +365,23 @@ $('dmList').addEventListener('click',async e=>{const d=e.target.closest('[data-d
 
 /* ---------- Tài khoản ---------- */
 function renderCanBo(){
-  $('cbList').innerHTML=profilesAll.length?profilesAll.map(p=>{const self=p.user_id===me.id;
-    return `<div class="cb-row"><span>${esc(p.ho_ten)}<div class="muted" style="font-size:12px">${esc(p.email||'')}${p.hoat_dong?'':' · đã khoá'}</div></span>
+  const ds=[...profilesAll].sort((x,y)=>(x.hoat_dong-y.hoat_dong)||String(x.ho_ten).localeCompare(y.ho_ten,'vi'));
+  $('cbList').innerHTML=ds.length?ds.map(p=>{const self=p.user_id===me.id;
+    return `<div class="cb-row"><span>${esc(p.ho_ten)}<div class="muted" style="font-size:12px">${esc(p.email||'')}${p.hoat_dong?'':' · <b>chờ duyệt / đã khoá</b>'}</div></span>
       <select data-vai="${p.user_id}" ${self?'disabled':''} aria-label="Vai trò"><option value="can_bo" ${p.vai_tro==='can_bo'?'selected':''}>Cán bộ</option><option value="quan_tri" ${p.vai_tro==='quan_tri'?'selected':''}>Quản trị</option></select>
-      <button class="btn small" type="button" data-pass="${p.user_id}">Đặt mật khẩu</button>
-      ${self?'':`<button class="btn small" type="button" data-khoa="${p.user_id}">${p.hoat_dong?'Khoá':'Mở khoá'}</button>`}</div>`}).join(''):'<div class="cb-row muted">Chưa có tài khoản.</div>';
-}
-async function goiTK(body){
-  const {data:{session}}=await sb.auth.getSession();
-  const r=await fetch(SB_URL+'/functions/v1/hsba-tai-khoan',{method:'POST',headers:{'Content-Type':'application/json',apikey:SB_KEY,Authorization:'Bearer '+session.access_token},body:JSON.stringify(body)});
-  let d={};try{d=await r.json()}catch(e){}
-  if(!r.ok||d.error)throw new Error(d.error||('Lỗi máy chủ '+r.status));return d;
+      ${self?'':`<button class="btn small ${p.hoat_dong?'':'primary'}" type="button" data-khoa="${p.user_id}">${p.hoat_dong?'Khoá':'Duyệt'}</button>`}</div>`}).join(''):'<div class="cb-row muted">Chưa có tài khoản.</div>';
 }
 $('cbList').addEventListener('change',async e=>{const s=e.target.closest('[data-vai]');if(!s)return;
   const {error}=await sb.from('hsba_tai_khoan').update({vai_tro:s.value}).eq('user_id',s.dataset.vai);
   if(error){toast(writeErr(error))}else toast('Đã đổi vai trò của '+names[s.dataset.vai]);loadNames()});
-$('cbList').addEventListener('click',async e=>{
-  const k=e.target.closest('[data-khoa]'),p=e.target.closest('[data-pass]');
-  if(k){const tk=profilesAll.find(x=>x.user_id===k.dataset.khoa);const {error}=await sb.from('hsba_tai_khoan').update({hoat_dong:!tk.hoat_dong}).eq('user_id',tk.user_id);
-    if(error)toast(writeErr(error));else toast((tk.hoat_dong?'Đã khoá ':'Đã mở khoá ')+tk.ho_ten);loadNames()}
-  if(p){const tk=profilesAll.find(x=>x.user_id===p.dataset.pass);const mk=prompt('Mật khẩu mới cho '+tk.ho_ten+' (ít nhất 8 ký tự):');if(!mk)return;
-    try{await goiTK({action:'doi_mat_khau',user_id:tk.user_id,mat_khau:mk});toast('Đã đặt mật khẩu mới cho '+tk.ho_ten)}catch(err){toast(err.message)}}
-});
+$('cbList').addEventListener('click',async e=>{const k=e.target.closest('[data-khoa]');if(!k)return;
+  const tk=profilesAll.find(x=>x.user_id===k.dataset.khoa);const {error}=await sb.from('hsba_tai_khoan').update({hoat_dong:!tk.hoat_dong}).eq('user_id',tk.user_id);
+  if(error)toast(writeErr(error));else toast((tk.hoat_dong?'Đã khoá ':'Đã duyệt ')+tk.ho_ten);loadNames()});
 $('tkForm').addEventListener('submit',async e=>{e.preventDefault();$('tkErr').textContent='';$('tkBtn').disabled=true;
-  try{const d=await goiTK({action:'tao',ho_ten:$('tkTen').value,email:$('tkEmail').value,mat_khau:$('tkPass').value,vai_tro:$('tkVai').value});
-    toast(d.moi?'Đã tạo tài khoản mới':'Email đã có tài khoản, đã cấp quyền vào app');$('tkForm').reset();loadNames()}
-  catch(err){$('tkErr').textContent=err.message}
+  const {data,error}=await sb.rpc('hsba_them_theo_email',{p_email:$('tkEmail').value,p_ho_ten:$('tkTen').value,p_vai_tro:$('tkVai').value});
+  if(error)$('tkErr').textContent=error.message;
+  else if(data==='khong_co')$('tkErr').textContent='Email này chưa có tài khoản. Nhờ người đó bấm “Đăng ký” ở trang đăng nhập, rồi duyệt ở danh sách trên.';
+  else{toast('Đã thêm '+$('tkTen').value);$('tkForm').reset();loadNames()}
   $('tkBtn').disabled=false});
 
 /* ---------- Nạp dữ liệu cũ ---------- */

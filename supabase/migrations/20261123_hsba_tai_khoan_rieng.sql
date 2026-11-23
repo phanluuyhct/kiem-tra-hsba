@@ -22,14 +22,23 @@ $$;
 revoke execute on function public.hsba_quan_tri() from public, anon;
 grant execute on function public.hsba_quan_tri() to authenticated;
 
-create or replace function public.hsba_tim_user(p_email text) returns uuid
-language sql stable security definer set search_path to 'public','auth' as $$
-  select id from auth.users where lower(email) = lower(p_email) limit 1;
-$$;
-revoke execute on function public.hsba_tim_user(text) from public, anon, authenticated;
-grant execute on function public.hsba_tim_user(text) to service_role;
+-- Quản trị thêm người đã có tài khoản (vd. tài khoản app Công việc) theo email
+create or replace function public.hsba_them_theo_email(p_email text, p_ho_ten text, p_vai_tro text default 'can_bo')
+returns text language plpgsql security definer set search_path to 'public','auth' as $$
+declare v uuid;
+begin
+  if not public.hsba_quan_tri() then raise exception 'Chỉ quản trị app mới được thêm tài khoản'; end if;
+  select id into v from auth.users where lower(email) = lower(trim(p_email)) limit 1;
+  if v is null then return 'khong_co'; end if;
+  insert into public.hsba_tai_khoan (user_id, ho_ten, email, vai_tro, hoat_dong, tao_boi)
+  values (v, trim(p_ho_ten), lower(trim(p_email)), case when p_vai_tro = 'quan_tri' then 'quan_tri' else 'can_bo' end, true, auth.uid())
+  on conflict (user_id) do update set hoat_dong = true, ho_ten = excluded.ho_ten, vai_tro = excluded.vai_tro;
+  return 'ok';
+end $$;
+revoke execute on function public.hsba_them_theo_email(text,text,text) from public, anon;
+grant execute on function public.hsba_them_theo_email(text,text,text) to authenticated;
 
-create policy hsba_tk_doc on public.hsba_tai_khoan for select to authenticated using (public.hsba_co_quyen());
+create policy hsba_tk_doc on public.hsba_tai_khoan for select to authenticated using (public.hsba_co_quyen() or user_id = auth.uid());
 create policy hsba_tk_sua on public.hsba_tai_khoan for update to authenticated using (public.hsba_quan_tri()) with check (public.hsba_quan_tri());
 create policy hsba_tk_xoa on public.hsba_tai_khoan for delete to authenticated using (public.hsba_quan_tri() and user_id <> auth.uid());
 
@@ -59,7 +68,13 @@ declare
   req_team  bigint := nullif(new.raw_user_meta_data->>'team_id','')::bigint;
   t_elem text;
 begin
-  if new.raw_user_meta_data->>'app' = 'hsba' then return new; end if;
+  -- Người tự đăng ký từ app HSBA: vào danh sách chờ duyệt, không tạo hồ sơ bên app Công việc
+  if new.raw_user_meta_data->>'app' = 'hsba' then
+    insert into public.hsba_tai_khoan (user_id, ho_ten, email, vai_tro, hoat_dong)
+    values (new.id, coalesce(nullif(trim(new.raw_user_meta_data->>'full_name'),''), split_part(new.email,'@',1)), new.email, 'can_bo', false)
+    on conflict (user_id) do nothing;
+    return new;
+  end if;
   if req_role in ('truong_phong','pho_truong_phong','nhan_vien') then safe_role := req_role; else safe_role := 'nhan_vien'; end if;
   insert into public.profiles (id, email, full_name, role, position, phone, birthday)
   values (new.id, new.email,
