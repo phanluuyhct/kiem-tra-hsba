@@ -272,22 +272,37 @@ function parseSheet(rows){
     out.push({ma,hoTen:String(r[c.ten]||'').trim(),namSinh:String(r[c.ns]??'').trim(),gioi:String(r[c.gt]??'').trim(),khoa:c.khoa>=0&&r[c.khoa]?String(r[c.khoa]).trim():khoa,ngayVao:normDate(r[c.vao]),ngayRa:normDate(r[c.ra]),huong:String(r[c.h]??'').replace(/\s+/g,' ').trim()});});
   return out;
 }
-function showPreview(){
+let daCo=new Map(); // ma -> {id, coTen}
+async function showPreview(){
   parsed=parsed.filter(r=>r.ma&&r.ngayRa);
   if(!parsed.length){$('impMsg').innerHTML='<span class="err">Không tìm thấy người bệnh nào trong file.</span>';return}
-  const byM={};parsed.forEach(r=>{const ym=r.ngayRa.slice(0,7);byM[ym]=(byM[ym]||0)+1});
-  const khoaN=new Set(parsed.map(r=>r.khoa)).size;
-  $('impMsg').innerHTML=`Đọc được <b>${parsed.length}</b> người bệnh ra viện thuộc <b>${khoaN}</b> khoa (${Object.entries(byM).map(([m,n])=>`${ymLabel(m).toLowerCase()}: ${n}`).join(', ')}). Kiểm tra nhanh vài dòng bên dưới rồi bấm thêm.`;
-  $('impPrev').innerHTML=`<table><thead><tr><th>Mã hồ sơ</th><th>Họ tên</th><th>Khoa</th><th>Ngày ra</th><th>Hướng ĐT</th></tr></thead><tbody>`+
-    parsed.map(r=>`<tr><td class="mono">${esc(r.ma)}</td><td>${esc(r.hoTen)}</td><td>${esc(r.khoa)}</td><td class="mono">${fmtD(r.ngayRa)}</td><td>${esc(r.huong)}</td></tr>`).join('')+'</tbody></table>';
-  $('impPrev').hidden=false;$('impGo').disabled=false;
+  // bỏ mã trùng ngay trong file
+  const seen=new Set();let trungFile=0;parsed=parsed.filter(r=>{if(seen.has(r.ma)){trungFile++;return false}seen.add(r.ma);return true});
+  $('impMsg').innerHTML='<span class="muted">Đang đối chiếu với hồ sơ đã có…</span>';
+  daCo=new Map();const mas=parsed.map(r=>r.ma);
+  try{for(let i=0;i<mas.length;i+=200){const {data,error}=await sb.from('hsba_ho_so').select('id,ma,ho_ten').in('ma',mas.slice(i,i+200));if(error)throw error;
+    (data||[]).forEach(x=>{const o=daCo.get(x.ma)||{ids:[],thieu:[]};o.ids.push(x.id);if(!x.ho_ten)o.thieu.push(x.id);daCo.set(x.ma,o)})}}
+  catch(e){$('impMsg').innerHTML=`<span class="err">Không đối chiếu được với dữ liệu: ${esc(e.message||e)}</span>`;return}
+  const moi=parsed.filter(r=>!daCo.has(r.ma)),trung=parsed.length-moi.length,bosung=parsed.filter(r=>daCo.has(r.ma)&&daCo.get(r.ma).thieu.length).length;
+  const byM={};moi.forEach(r=>{const ym=r.ngayRa.slice(0,7);byM[ym]=(byM[ym]||0)+1});
+  $('impMsg').innerHTML=`Đọc được <b>${parsed.length+trungFile}</b> người bệnh. <b>${moi.length}</b> hồ sơ mới sẽ được thêm${moi.length?` (${Object.entries(byM).map(([m,n])=>`${ymLabel(m).toLowerCase()}: ${n}`).join(', ')})`:''}.`+
+    (trung?`<br><b>${trung}</b> hồ sơ trùng số hồ sơ đã có → tự động bỏ qua${bosung?`, trong đó ${bosung} hồ sơ cũ chưa có họ tên sẽ được bổ sung thông tin người bệnh`:''}.`:'')+
+    (trungFile?`<br>${trungFile} dòng lặp lại trong file đã bị loại.`:'');
+  $('impPrev').innerHTML=`<table><thead><tr><th>Mã hồ sơ</th><th>Họ tên</th><th>Khoa</th><th>Ngày ra</th><th>Tình trạng</th></tr></thead><tbody>`+
+    parsed.map(r=>{const d=daCo.get(r.ma);return `<tr${d?' style="opacity:.55"':''}><td class="mono">${esc(r.ma)}</td><td>${esc(r.hoTen)}</td><td>${esc(r.khoa)}</td><td class="mono">${fmtD(r.ngayRa)}</td><td>${d?(d.thieu.length?'Trùng – bổ sung tên':'Trùng – bỏ qua'):'<b>Mới</b>'}</td></tr>`}).join('')+'</tbody></table>';
+  $('impPrev').hidden=false;$('impGo').disabled=!(moi.length||bosung);
+  $('impGo').textContent=moi.length?`Thêm ${moi.length} hồ sơ mới`:bosung?'Bổ sung thông tin':'Không có hồ sơ mới';
 }
 $('impGo').addEventListener('click',async()=>{
   const b=$('impGo');b.disabled=true;
-  const rows=parsed.map(r=>({ma:r.ma,ngay_ra:r.ngayRa.slice(0,10),gio_ra:r.ngayRa.slice(11)||null,ho_ten:r.hoTen,nam_sinh:r.namSinh,gioi:r.gioi,khoa:r.khoa,ngay_vao:r.ngayVao,huong:r.huong,nguoi_nhap:me.id,nguon:'HIS',...(coDiaChi?{dia_chi:r.diaChi||null}:{})}));
+  const moiP=parsed.filter(r=>!daCo.has(r.ma));
+  const info=r=>({ho_ten:r.hoTen,nam_sinh:r.namSinh,gioi:r.gioi,ngay_vao:r.ngayVao,huong:r.huong,...(coDiaChi?{dia_chi:r.diaChi||null}:{})});
+  const bosung=parsed.filter(r=>daCo.has(r.ma)&&daCo.get(r.ma).thieu.length);
+  const rows=moiP.map(r=>({ma:r.ma,ngay_ra:r.ngayRa.slice(0,10),gio_ra:r.ngayRa.slice(11)||null,ho_ten:r.hoTen,nam_sinh:r.namSinh,gioi:r.gioi,khoa:r.khoa,ngay_vao:r.ngayVao,huong:r.huong,nguoi_nhap:me.id,nguon:'HIS',...(coDiaChi?{dia_chi:r.diaChi||null}:{})}));
   try{
-    for(let i=0;i<rows.length;i+=500){const {error}=await sb.from('hsba_ho_so').upsert(rows.slice(i,i+500),{onConflict:'ma,ngay_ra'});if(error)throw error;b.textContent=`Đang lưu ${Math.min(i+500,rows.length)}/${rows.length}…`}
-    toast(`Đã nhập ${rows.length} hồ sơ ra viện`);closeAll();
+    for(let i=0;i<rows.length;i+=500){const {error}=await sb.from('hsba_ho_so').upsert(rows.slice(i,i+500),{onConflict:'ma,ngay_ra',ignoreDuplicates:true});if(error)throw error;b.textContent=`Đang lưu ${Math.min(i+500,rows.length)}/${rows.length}…`}
+    for(const r of bosung){const {error}=await sb.from('hsba_ho_so').update(info(r)).in('id',daCo.get(r.ma).thieu);if(error)throw error}
+    toast(`Đã thêm ${rows.length} hồ sơ mới`+(parsed.length-rows.length?`, bỏ qua ${parsed.length-rows.length} hồ sơ trùng`:'')+(bosung.length?`, bổ sung tên ${bosung.length} hồ sơ cũ`:''));closeAll();
     const ms=[...new Set(rows.map(r=>r.ngay_ra.slice(0,7)))];
     if(ms.length===1&&ms[0]!==curYM){curYM=ms[0];if(![...$('selThang').options].some(o=>o.value===curYM))$('selThang').insertAdjacentHTML('beforeend',`<option value="${curYM}">${ymLabel(curYM)}</option>`);$('selThang').value=curYM}
     loadMonth();
