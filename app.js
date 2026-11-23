@@ -129,18 +129,17 @@ function renderList(){
   $('chips').innerHTML=`<button class="chip" data-st="" aria-pressed="${!filt.st}">Tất cả <b>${base.length}</b></button>`+
     Object.keys(ST).map(k=>`<button class="chip" data-st="${k}" aria-pressed="${filt.st===k}"><span class="sw" style="background:${STC[k]}"></span>${ST[k]} <b>${cnt[k]}</b></button>`).join('');
   const rows=filtered();const tb=$('tbody');
-  if(!all.length){tb.innerHTML=`<tr><td colspan="9" class="empty">Chưa có hồ sơ ra viện nào trong ${ymLabel(curYM).toLowerCase()}.<br>Bấm <b>Nhập danh sách ra viện từ HIS</b> để lấy danh sách.</td></tr>`;updBulk();return}
-  if(!rows.length){tb.innerHTML=`<tr><td colspan="9" class="empty">Không có hồ sơ phù hợp bộ lọc.</td></tr>`;updBulk();return}
+  if(!all.length){tb.innerHTML=`<tr><td colspan="6" class="empty">Chưa có hồ sơ ra viện nào trong ${ymLabel(curYM).toLowerCase()}.<br>Bấm <b>Nhập danh sách ra viện từ HIS</b> để lấy danh sách.</td></tr>`;updBulk();return}
+  if(!rows.length){tb.innerHTML=`<tr><td colspan="6" class="empty">Không có hồ sơ phù hợp bộ lọc.</td></tr>`;updBulk();return}
   const html=[];let lastK=null;const nBy={};rows.forEach(r=>nBy[r.khoa]=(nBy[r.khoa]||0)+1);
   rows.forEach(r=>{
-    if(r.khoa!==lastK){lastK=r.khoa;html.push(`<tr class="grp"><td colspan="8">${esc(r.khoa)} · ${nBy[r.khoa]} hồ sơ</td></tr>`)}
     const loi=[...(r.loi||[]),r.ghiChu].filter(Boolean).join('; ');
     html.push(`<tr class="row${selected.has(r.k)?' sel':''}" data-k="${r.k}">
       <td><input type="checkbox" data-chk="${r.k}" ${selected.has(r.k)?'checked':''} aria-label="Chọn ${esc(r.ma)}"></td>
-      <td class="mono">${esc(r.ma)}</td><td>${r.hoTen?esc(r.hoTen):'<span class="muted">Dữ liệu cũ (Google Sheet)</span>'}<div class="muted" style="font-size:12px">${esc(r.gioi||'')}${r.namSinh?' · '+esc(r.namSinh):''}</div></td>
-      <td class="mono">${fmtD((r.ngayRa||'').slice(0,10))}</td><td>${esc(r.huong||'')}</td>
+      <td class="mono">${esc(r.ma)}</td><td>${esc(r.khoa||'')}</td>
+      <td class="mono">${fmtD((r.ngayRa||'').slice(0,10))}</td>
       <td>${r.danhGia?`<span class="st ${r.danhGia}">${r.danhGia==='dat'?'Đạt':'Không đạt'}</span>`:'<span class="st chua">Chưa đánh giá</span>'}</td>
-      <td class="loi-mini">${esc(loi)}</td><td class="muted" style="font-size:12.5px">${esc(who(r.nguoiKT))}</td></tr>`);
+      <td class="loi-mini">${esc(loi)}</td></tr>`);
   });
   tb.innerHTML=html.join('');updBulk();
 }
