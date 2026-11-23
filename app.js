@@ -27,15 +27,17 @@ let selected=new Set();
 let view='ho-so';
 
 /* ---------- Ánh xạ dòng dữ liệu ---------- */
-function fromRow(r){return {k:String(r.id),id:r.id,ma:r.ma,hoTen:r.ho_ten||'',namSinh:r.nam_sinh||'',gioi:r.gioi||'',khoa:r.khoa||'',ngayVao:r.ngay_vao||'',
+function fromRow(r){return {k:String(r.id),id:r.id,ma:r.ma,hoTen:r.ho_ten||'',namSinh:r.nam_sinh||'',gioi:r.gioi||'',khoa:r.khoa||'',ngayVao:r.ngay_vao||'',diaChi:r.dia_chi||'',
   ngayRa:r.ngay_ra+(r.gio_ra?' '+r.gio_ra:''),huong:r.huong||'',giao:r.giao,ngayGiao:r.ngay_giao,danhGia:r.danh_gia,loi:r.loi||[],ghiChu:r.ghi_chu||'',
   nguoiKT:r.nguoi_kt,capNhatLuc:r.cap_nhat_luc,nguon:r.nguon}}
 function toPatch(p){const o={};const map={giao:'giao',ngayGiao:'ngay_giao',danhGia:'danh_gia',loi:'loi',ghiChu:'ghi_chu',nguoiKT:'nguoi_kt',capNhatLuc:'cap_nhat_luc'};
   Object.keys(p).forEach(k=>{if(map[k])o[map[k]]=p[k]});return o}
-const COLS='id,ma,ngay_ra,gio_ra,ho_ten,nam_sinh,gioi,khoa,ngay_vao,huong,giao,ngay_giao,danh_gia,loi,ghi_chu,nguoi_kt,cap_nhat_luc,nguon';
+let coDiaChi=true;const COLS0='id,ma,ngay_ra,gio_ra,ho_ten,nam_sinh,gioi,khoa,ngay_vao,huong,giao,ngay_giao,danh_gia,loi,ghi_chu,nguoi_kt,cap_nhat_luc,nguon';
+const COLS=()=>COLS0+(coDiaChi?',dia_chi':'');
 async function fetchRange(from,to,cols){
   const out=[];let off=0;
-  for(;;){const {data,error}=await sb.from('hsba_ho_so').select(cols||COLS).gte('ngay_ra',from).lte('ngay_ra',to).order('id').range(off,off+999);
+  for(;;){const {data,error}=await sb.from('hsba_ho_so').select(cols||COLS()).gte('ngay_ra',from).lte('ngay_ra',to).order('id').range(off,off+999);
+    if(error&&coDiaChi&&/dia_chi/.test(error.message||'')){coDiaChi=false;return fetchRange(from,to,cols&&cols.replace(',dia_chi',''))}
     if(error)throw error;out.push(...data);if(data.length<1000)break;off+=1000;}
   return out;
 }
@@ -129,15 +131,20 @@ function renderList(){
   $('chips').innerHTML=`<button class="chip" data-st="" aria-pressed="${!filt.st}">Tất cả <b>${base.length}</b></button>`+
     Object.keys(ST).map(k=>`<button class="chip" data-st="${k}" aria-pressed="${filt.st===k}"><span class="sw" style="background:${STC[k]}"></span>${ST[k]} <b>${cnt[k]}</b></button>`).join('');
   const rows=filtered();const tb=$('tbody');
-  if(!all.length){tb.innerHTML=`<tr><td colspan="6" class="empty">Chưa có hồ sơ ra viện nào trong ${ymLabel(curYM).toLowerCase()}.<br>Bấm <b>Nhập danh sách ra viện từ HIS</b> để lấy danh sách.</td></tr>`;updBulk();return}
-  if(!rows.length){tb.innerHTML=`<tr><td colspan="6" class="empty">Không có hồ sơ phù hợp bộ lọc.</td></tr>`;updBulk();return}
+  if(!all.length){tb.innerHTML=`<tr><td colspan="12" class="empty">Chưa có hồ sơ ra viện nào trong ${ymLabel(curYM).toLowerCase()}.<br>Bấm <b>Nhập danh sách ra viện từ HIS</b> để lấy danh sách.</td></tr>`;updBulk();return}
+  if(!rows.length){tb.innerHTML=`<tr><td colspan="12" class="empty">Không có hồ sơ phù hợp bộ lọc.</td></tr>`;updBulk();return}
   const html=[];let lastK=null;const nBy={};rows.forEach(r=>nBy[r.khoa]=(nBy[r.khoa]||0)+1);
+  let stt=0;
   rows.forEach(r=>{
-    const loi=[...(r.loi||[]),r.ghiChu].filter(Boolean).join('; ');
+    if(r.khoa!==lastK){lastK=r.khoa;stt=0;html.push(`<tr class="grp"><td colspan="12">${esc(r.khoa||'Chưa rõ khoa')} - ${nBy[r.khoa]} NB</td></tr>`)}
+    stt++;const loi=[...(r.loi||[]),r.ghiChu].filter(Boolean).join('; ');
+    const dt=s=>{if(!s)return '';const [d,t]=String(s).split(' ');return `${fmtD(d)}${t?'<div class="muted" style="font-size:12px">'+esc(t)+'</div>':''}`};
     html.push(`<tr class="row${selected.has(r.k)?' sel':''}" data-k="${r.k}">
       <td><input type="checkbox" data-chk="${r.k}" ${selected.has(r.k)?'checked':''} aria-label="Chọn ${esc(r.ma)}"></td>
-      <td class="mono">${esc(r.ma)}</td><td>${esc(r.khoa||'')}</td>
-      <td class="mono">${fmtD((r.ngayRa||'').slice(0,10))}</td>
+      <td class="num">${stt}</td><td class="mono">${esc(r.ma)}</td>
+      <td style="font-weight:600">${r.hoTen?esc(r.hoTen.toUpperCase()):'<span class="muted" style="font-weight:400">Dữ liệu cũ</span>'}</td>
+      <td class="mono">${esc(r.namSinh||'')}</td><td>${esc(r.gioi||'')}</td><td class="dc">${esc(r.diaChi||'')}</td>
+      <td class="mono">${dt(r.ngayVao)}</td><td class="mono">${dt(r.ngayRa)}</td><td>${esc(r.huong||'')}</td>
       <td>${r.danhGia?`<span class="st ${r.danhGia}">${r.danhGia==='dat'?'Đạt':'Không đạt'}</span>`:'<span class="st chua">Chưa đánh giá</span>'}</td>
       <td class="loi-mini">${esc(loi)}</td></tr>`);
   });
@@ -175,7 +182,7 @@ $('scanForm').addEventListener('submit',async e=>{e.preventDefault();const v=$('
   if(hit.length===1){openDrawer(hit[0].k);$('scan').value='';return}
   if(hit.length>1){toast(`Có ${hit.length} hồ sơ khớp, gõ thêm số`);return}
   // tìm ở các tháng khác
-  const {data}=await sb.from('hsba_ho_so').select(COLS).eq('ma',v).order('ngay_ra',{ascending:false}).limit(1);
+  const {data}=await sb.from('hsba_ho_so').select(COLS()).eq('ma',v).order('ngay_ra',{ascending:false}).limit(1);
   if(data&&data.length){const r=fromRow(data[0]);curYM=r.ngayRa.slice(0,7);if(![...$('selThang').options].some(o=>o.value===curYM))$('selThang').insertAdjacentHTML('beforeend',`<option value="${curYM}">${ymLabel(curYM)}</option>`);$('selThang').value=curYM;await loadMonth();openDrawer(r.k);$('scan').value='';}
   else toast(`Không thấy mã ${v}. Kiểm tra lại hoặc nhập danh sách ra viện từ HIS.`);
 });
@@ -186,7 +193,7 @@ function openDrawer(k){
   const r=recs.get(k);if(!r)return;openK=k;draft={giao:r.giao||'',ngayGiao:r.ngayGiao||'',danhGia:r.danhGia||'',loi:[...(r.loi||[])],ghiChu:r.ghiChu||''};
   if(!draft.danhGia){draft.danhGia=draft.loi.length?'khong':'dat';if(!draft.giao){draft.giao='dat';draft.ngayGiao=draft.ngayGiao||today()}}
   $('dTitle').textContent=r.hoTen||'Hồ sơ '+r.ma;$('dSub').textContent=r.ma;
-  $('dInfo').innerHTML=[['Khoa',r.khoa],['Năm sinh',r.namSinh],['Giới tính',r.gioi],['Ngày vào',fmtD(r.ngayVao)],['Ngày ra',fmtD(r.ngayRa)],['Hướng điều trị',r.huong],['Nguồn',r.nguon==='Google Sheet'?'Dữ liệu cũ từ Google Sheet':'HIS']].filter(x=>x[1]).map(([a,b])=>`<dt>${a}</dt><dd>${esc(b)}</dd>`).join('');
+  $('dInfo').innerHTML=[['Khoa',r.khoa],['Năm sinh',r.namSinh],['Giới tính',r.gioi],['Địa chỉ',r.diaChi],['Ngày vào',fmtD(r.ngayVao)],['Ngày ra',fmtD(r.ngayRa)],['Hướng điều trị',r.huong],['Nguồn',r.nguon==='Google Sheet'?'Dữ liệu cũ từ Google Sheet':'HIS']].filter(x=>x[1]).map(([a,b])=>`<dt>${a}</dt><dd>${esc(b)}</dd>`).join('');
   $('dGhiChu').value=draft.ghiChu;$('dErr').textContent='';
   fillDrawer();fillDrawerMeta(r);
   $('drawer').hidden=false;$('scrim').hidden=false;$('segDG').querySelector('button').focus();
@@ -262,7 +269,7 @@ function showPreview(){
 }
 $('impGo').addEventListener('click',async()=>{
   const b=$('impGo');b.disabled=true;
-  const rows=parsed.map(r=>({ma:r.ma,ngay_ra:r.ngayRa.slice(0,10),gio_ra:r.ngayRa.slice(11)||null,ho_ten:r.hoTen,nam_sinh:r.namSinh,gioi:r.gioi,khoa:r.khoa,ngay_vao:r.ngayVao,huong:r.huong,nguoi_nhap:me.id,nguon:'HIS'}));
+  const rows=parsed.map(r=>({ma:r.ma,ngay_ra:r.ngayRa.slice(0,10),gio_ra:r.ngayRa.slice(11)||null,ho_ten:r.hoTen,nam_sinh:r.namSinh,gioi:r.gioi,khoa:r.khoa,ngay_vao:r.ngayVao,huong:r.huong,nguoi_nhap:me.id,nguon:'HIS',...(coDiaChi?{dia_chi:r.diaChi||null}:{})}));
   try{
     for(let i=0;i<rows.length;i+=500){const {error}=await sb.from('hsba_ho_so').upsert(rows.slice(i,i+500),{onConflict:'ma,ngay_ra'});if(error)throw error;b.textContent=`Đang lưu ${Math.min(i+500,rows.length)}/${rows.length}…`}
     toast(`Đã nhập ${rows.length} hồ sơ ra viện`);closeAll();
@@ -283,7 +290,7 @@ async function renderStats(){
   $('kyNote').textContent=ms.length===1?ymLabel(ms[0]):`${ymLabel(ms[0])} đến ${ymLabel(ms[ms.length-1]).replace('Tháng ','tháng ')} · đang tải…`;
   let rows;
   if(ms.length===1)rows=[...recs.values()];
-  else{try{rows=(await fetchRange(ms[0]+'-01',lastDay(ms[ms.length-1]),'id,ma,ngay_ra,gio_ra,ho_ten,nam_sinh,gioi,khoa,ngay_vao,huong,giao,ngay_giao,danh_gia,loi,ghi_chu,nguoi_kt,nguon')).map(fromRow)}catch(e){$('kyNote').textContent='Không tải được: '+e.message;return}}
+  else{try{rows=(await fetchRange(ms[0]+'-01',lastDay(ms[ms.length-1]),COLS())).map(fromRow)}catch(e){$('kyNote').textContent='Không tải được: '+e.message;return}}
   if(seq!==statSeq)return;
   $('kyNote').textContent=ms.length===1?ymLabel(ms[0]):`${ymLabel(ms[0])} đến ${ymLabel(ms[ms.length-1]).replace('Tháng ','tháng ')}`;
   statRows=rows;
@@ -331,15 +338,15 @@ $('btnExcel').addEventListener('click',async()=>{
   try{
     await loadScript(XLSXJS);
     const rows=statRows.slice().sort((a,b)=>(a.khoa||'').localeCompare(b.khoa||'','vi')||(a.ngayRa||'').localeCompare(b.ngayRa||''));
-    const ct=[['Mã hồ sơ','Họ tên','Năm sinh','Giới tính','Khoa','Ngày vào','Ngày ra','Hướng điều trị','Đánh giá P.KHTH','Lỗi','Ghi chú','Người kiểm tra']]
-      .concat(rows.map(r=>[r.ma,r.hoTen,r.namSinh,r.gioi,r.khoa,fmtD(r.ngayVao),fmtD(r.ngayRa),r.huong,r.danhGia==='dat'?'Đạt':r.danhGia==='khong'?'Không đạt':'Chưa đánh giá',(r.loi||[]).join('; '),r.ghiChu||'',who(r.nguoiKT)]));
+    const ct=[['Mã hồ sơ','Họ tên','Năm sinh','Giới tính','Địa chỉ','Khoa','Ngày vào','Ngày ra','Hướng điều trị','Đánh giá P.KHTH','Lỗi','Ghi chú','Người kiểm tra']]
+      .concat(rows.map(r=>[r.ma,r.hoTen,r.namSinh,r.gioi,r.diaChi,r.khoa,fmtD(r.ngayVao),fmtD(r.ngayRa),r.huong,r.danhGia==='dat'?'Đạt':r.danhGia==='khong'?'Không đạt':'Chưa đánh giá',(r.loi||[]).join('; '),r.ghiChu||'',who(r.nguoiKT)]));
     const byK=groupKhoa(rows);
     const tk=[['Khoa','Ra viện','Đã đánh giá','Tỷ lệ đánh giá (%)','Đạt','Không đạt','Tỷ lệ đạt (%)']].concat(Object.entries(byK).sort((a,b)=>a[0].localeCompare(b[0],'vi')).map(([k,o])=>[k,o.n,o.d,pct(o.d,o.n),o.d-o.k,o.k,pct(o.d-o.k,o.d)]));
     const ec={};rows.forEach(r=>(r.loi||[]).forEach(l=>ec[l]=(ec[l]||0)+1));
     const lo=[['Lỗi','Số hồ sơ']].concat(Object.entries(ec).sort((a,b)=>b[1]-a[1]));
     const wb=XLSX.utils.book_new();
     const add=(d,n,w)=>{const ws=XLSX.utils.aoa_to_sheet(d);ws['!cols']=w.map(x=>({wch:x}));XLSX.utils.book_append_sheet(wb,ws,n)};
-    add(tk,'Theo khoa',[44,9,9,13,11,7,10,13]);add(ct,'Chi tiết',[13,26,11,8,40,17,17,14,15,11,14,50,40,20]);add(lo,'Lỗi thường gặp',[60,10]);
+    add(tk,'Theo khoa',[44,9,9,13,11,7,10,13]);add(ct,'Chi tiết',[13,26,11,8,36,40,17,17,14,14,50,40,20]);add(lo,'Lỗi thường gặp',[60,10]);
     const ms=kyMonths();XLSX.writeFile(wb,`Kiem-tra-HSBA_${ms[0]}${ms.length>1?'_den_'+ms[ms.length-1]:''}.xlsx`);
   }catch(e){toast('Không xuất được file: '+(e.message||e))}
   finally{b.disabled=false}
