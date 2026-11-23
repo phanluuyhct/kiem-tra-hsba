@@ -164,6 +164,7 @@ body{font-family:var(--f-body);min-height:100vh;padding-top:env(safe-area-inset-
 .cb-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line)}
 .cb-row:last-child{border-bottom:0}
 .cb-row span{flex:1;min-width:0}
+.cb-row select{width:auto}
 </style>
 </head>
 <body>
@@ -171,7 +172,7 @@ body{font-family:var(--f-body);min-height:100vh;padding-top:env(safe-area-inset-
 <div id="scrLogin" hidden>
   <form class="login" id="loginForm" autocomplete="on">
     <div class="brand"><div class="mark" aria-hidden="true">HSBA</div><div><h1>Kiểm tra hồ sơ bệnh án</h1><p>Phòng Kế hoạch tổng hợp · <span style="white-space:nowrap">Bệnh viện 30-4</span></p></div></div>
-    <p>Đăng nhập bằng tài khoản app Công việc KHTH.</p>
+    <p>Đăng nhập bằng tài khoản do quản trị app cấp.</p>
     <label class="f">Email<input id="lgEmail" type="email" autocomplete="username" required></label>
     <label class="f" id="lgPassWrap">Mật khẩu<input id="lgPass" type="password" autocomplete="current-password"></label>
     <span class="err" id="lgErr" role="alert"></span>
@@ -189,7 +190,7 @@ body{font-family:var(--f-body);min-height:100vh;padding-top:env(safe-area-inset-
 <div id="scrNoAccess" hidden>
   <div class="login">
     <h1>Chưa được cấp quyền</h1>
-    <p id="naText">Tài khoản của anh/chị chưa được cấp quyền dùng app kiểm tra hồ sơ bệnh án. Nhờ Trưởng phòng hoặc Phó trưởng phòng KHTH cấp quyền ở tab “Cán bộ”.</p>
+    <p id="naText">Tài khoản của anh/chị chưa được cấp quyền dùng app kiểm tra hồ sơ bệnh án. Nhờ quản trị app tạo tài khoản ở tab “Tài khoản”.</p>
     <button class="btn" type="button" data-logout>Đăng xuất</button>
   </div>
 </div>
@@ -206,7 +207,7 @@ body{font-family:var(--f-body);min-height:100vh;padding-top:env(safe-area-inset-
       <a href="#ho-so" data-tab="ho-so">Hồ sơ</a>
       <a href="#dashboard" data-tab="dashboard">Dashboard</a>
       <a href="#danh-muc" data-tab="danh-muc">Danh mục lỗi</a>
-      <a href="#can-bo" data-tab="can-bo" id="tabCanBo" hidden>Cán bộ</a>
+      <a href="#can-bo" data-tab="can-bo" id="tabCanBo" hidden>Tài khoản</a>
     </nav>
     <div class="userbox"><span id="meName"></span><button class="btn small" type="button" data-logout>Đăng xuất</button></div>
   </div>
@@ -281,8 +282,17 @@ body{font-family:var(--f-body);min-height:100vh;padding-top:env(safe-area-inset-
   </section>
 
   <section data-view="can-bo" hidden>
-    <p class="muted" style="max-width:680px;margin-top:0">Đánh dấu cán bộ được dùng app kiểm tra hồ sơ. Trưởng phòng, Phó trưởng phòng và quản trị luôn có quyền. Danh sách lấy từ tài khoản app Công việc KHTH.</p>
+    <p class="muted" style="max-width:680px;margin-top:0">Tài khoản riêng của app kiểm tra hồ sơ, không liên quan app Công việc KHTH. Chỉ người có trong danh sách và đang bật mới đăng nhập được.</p>
     <div class="panel" style="max-width:680px;padding:0" id="cbList"></div>
+    <form class="panel" id="tkForm" style="max-width:680px;margin-top:16px">
+      <h2>Thêm tài khoản</h2>
+      <div class="row2"><label class="f" style="flex:1">Họ tên<input id="tkTen" required></label><label class="f" style="flex:1">Email<input id="tkEmail" type="email" required></label></div>
+      <div class="row2"><label class="f" style="flex:1">Mật khẩu tạm (ít nhất 8 ký tự)<input id="tkPass" type="text" minlength="8" autocomplete="off"></label>
+        <label class="f" style="width:160px">Vai trò<select id="tkVai"><option value="can_bo">Cán bộ</option><option value="quan_tri">Quản trị</option></select></label></div>
+      <p class="muted" style="margin:4px 0 8px;font-size:12.5px">Đưa mật khẩu tạm cho cán bộ; họ có thể đổi bằng “Quên mật khẩu?”. Nếu email đã có tài khoản app Công việc thì không cần mật khẩu, người đó đăng nhập bằng mật khẩu cũ.</p>
+      <span class="err" id="tkErr" role="alert"></span>
+      <button class="btn primary" type="submit" id="tkBtn">Tạo tài khoản</button>
+    </form>
     <div class="panel" style="max-width:680px;margin-top:16px">
       <h2>Nạp dữ liệu cũ</h2>
       <p class="muted" style="margin-top:0">Chọn file <b>du-lieu-cu-hsba.json</b> (dữ liệu chuyển từ Google Sheet). Hồ sơ trùng mã và ngày ra sẽ được cập nhật, không tạo bản trùng.</p>

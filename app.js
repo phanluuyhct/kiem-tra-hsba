@@ -1,5 +1,5 @@
 // App Kiểm tra hồ sơ bệnh án – Phòng KHTH, Bệnh viện 30-4
-// Dữ liệu: Supabase (dự án khth-bv304), bảng hsba_ho_so, hsba_loi, hsba_can_bo
+// Dữ liệu: Supabase (dự án khth-bv304), bảng hsba_ho_so, hsba_loi, hsba_tai_khoan (tài khoản riêng)
 (function(){
 const SB_URL='https://ljkfxhdcmfngdtditeyy.supabase.co';
 const SB_KEY='sb_publishable_jHDgrrBk27mdZPbCkC2FRg_9mx76Smq';
@@ -68,10 +68,10 @@ async function start(){
   const {data:{session}}=await sb.auth.getSession();
   if(!session){screen('scrLogin');return}
   if(started)return;started=true;me=session.user;
-  const [{data:ok},{data:prof}]=await Promise.all([sb.rpc('hsba_co_quyen'),sb.from('profiles').select('id,full_name,role,active').eq('id',me.id).maybeSingle()]);
-  meProfile=prof;if(!ok){started=false;screen('scrNoAccess');return}
-  isManager=!!prof&&['admin','truong_phong','pho_truong_phong'].includes(prof.role);
-  $('tabCanBo').hidden=!isManager;$('meName').textContent=prof?prof.full_name:me.email;
+  const {data:prof}=await sb.from('hsba_tai_khoan').select('user_id,ho_ten,vai_tro,hoat_dong').eq('user_id',me.id).maybeSingle();
+  meProfile=prof;if(!prof||!prof.hoat_dong){started=false;screen('scrNoAccess');return}
+  isManager=prof.vai_tro==='quan_tri';
+  $('tabCanBo').hidden=!isManager;$('meName').textContent=prof.ho_ten||me.email;
   screen('scrApp');
   fillMonths();route();
   loadNames();loadLoi();loadMonth();subscribeRealtime();
@@ -79,7 +79,7 @@ async function start(){
 
 /* ---------- Tên cán bộ ---------- */
 let profilesAll=[];
-async function loadNames(){const {data}=await sb.from('profiles').select('id,full_name,role,position,active').order('full_name');profilesAll=data||[];profilesAll.forEach(p=>names[p.id]=p.full_name);renderList();if(view==='can-bo')renderCanBo()}
+async function loadNames(){const {data}=await sb.from('hsba_tai_khoan').select('user_id,ho_ten,email,vai_tro,hoat_dong,tao_luc').order('ho_ten');profilesAll=data||[];profilesAll.forEach(p=>names[p.user_id]=p.ho_ten);renderList();if(view==='can-bo')renderCanBo()}
 const who=id=>id?(names[id]||'Cán bộ'):'';
 
 /* ---------- Tháng ---------- */
@@ -354,17 +354,35 @@ $('dmList').addEventListener('click',async e=>{const d=e.target.closest('[data-d
   if(u){const i=+u.dataset.up;const a=loiDM[i-1],b=loiDM[i];const ta=a.thu_tu,tb=b.thu_tu===ta?ta+1:b.thu_tu;
     await sb.from('hsba_loi').update({thu_tu:tb}).eq('id',a.id);await sb.from('hsba_loi').update({thu_tu:ta}).eq('id',b.id);loadLoi()}});
 
-/* ---------- Cán bộ ---------- */
-let canBo=new Set();
-async function renderCanBo(){
-  const {data}=await sb.from('hsba_can_bo').select('profile_id');canBo=new Set((data||[]).map(x=>x.profile_id));
-  const ROLE={admin:'Quản trị',truong_phong:'Trưởng phòng',pho_truong_phong:'Phó trưởng phòng'};
-  $('cbList').innerHTML=profilesAll.filter(p=>p.active!==false).map(p=>{const always=!!ROLE[p.role];
-    return `<label class="cb-row"><input type="checkbox" data-cb="${p.id}" ${always||canBo.has(p.id)?'checked':''} ${always?'disabled':''}><span>${esc(p.full_name)}<div class="muted" style="font-size:12px">${esc(ROLE[p.role]||p.position||'')}</div></span></label>`}).join('');
+/* ---------- Tài khoản ---------- */
+function renderCanBo(){
+  $('cbList').innerHTML=profilesAll.length?profilesAll.map(p=>{const self=p.user_id===me.id;
+    return `<div class="cb-row"><span>${esc(p.ho_ten)}<div class="muted" style="font-size:12px">${esc(p.email||'')}${p.hoat_dong?'':' · đã khoá'}</div></span>
+      <select data-vai="${p.user_id}" ${self?'disabled':''} aria-label="Vai trò"><option value="can_bo" ${p.vai_tro==='can_bo'?'selected':''}>Cán bộ</option><option value="quan_tri" ${p.vai_tro==='quan_tri'?'selected':''}>Quản trị</option></select>
+      <button class="btn small" type="button" data-pass="${p.user_id}">Đặt mật khẩu</button>
+      ${self?'':`<button class="btn small" type="button" data-khoa="${p.user_id}">${p.hoat_dong?'Khoá':'Mở khoá'}</button>`}</div>`}).join(''):'<div class="cb-row muted">Chưa có tài khoản.</div>';
 }
-$('cbList').addEventListener('change',async e=>{const c=e.target.closest('[data-cb]');if(!c)return;const id=c.dataset.cb;
-  const {error}=c.checked?await sb.from('hsba_can_bo').insert({profile_id:id,them_boi:me.id}):await sb.from('hsba_can_bo').delete().eq('profile_id',id);
-  if(error){toast(writeErr(error));c.checked=!c.checked;return}toast(c.checked?'Đã cấp quyền cho '+names[id]:'Đã bỏ quyền của '+names[id])});
+async function goiTK(body){
+  const {data:{session}}=await sb.auth.getSession();
+  const r=await fetch(SB_URL+'/functions/v1/hsba-tai-khoan',{method:'POST',headers:{'Content-Type':'application/json',apikey:SB_KEY,Authorization:'Bearer '+session.access_token},body:JSON.stringify(body)});
+  let d={};try{d=await r.json()}catch(e){}
+  if(!r.ok||d.error)throw new Error(d.error||('Lỗi máy chủ '+r.status));return d;
+}
+$('cbList').addEventListener('change',async e=>{const s=e.target.closest('[data-vai]');if(!s)return;
+  const {error}=await sb.from('hsba_tai_khoan').update({vai_tro:s.value}).eq('user_id',s.dataset.vai);
+  if(error){toast(writeErr(error))}else toast('Đã đổi vai trò của '+names[s.dataset.vai]);loadNames()});
+$('cbList').addEventListener('click',async e=>{
+  const k=e.target.closest('[data-khoa]'),p=e.target.closest('[data-pass]');
+  if(k){const tk=profilesAll.find(x=>x.user_id===k.dataset.khoa);const {error}=await sb.from('hsba_tai_khoan').update({hoat_dong:!tk.hoat_dong}).eq('user_id',tk.user_id);
+    if(error)toast(writeErr(error));else toast((tk.hoat_dong?'Đã khoá ':'Đã mở khoá ')+tk.ho_ten);loadNames()}
+  if(p){const tk=profilesAll.find(x=>x.user_id===p.dataset.pass);const mk=prompt('Mật khẩu mới cho '+tk.ho_ten+' (ít nhất 8 ký tự):');if(!mk)return;
+    try{await goiTK({action:'doi_mat_khau',user_id:tk.user_id,mat_khau:mk});toast('Đã đặt mật khẩu mới cho '+tk.ho_ten)}catch(err){toast(err.message)}}
+});
+$('tkForm').addEventListener('submit',async e=>{e.preventDefault();$('tkErr').textContent='';$('tkBtn').disabled=true;
+  try{const d=await goiTK({action:'tao',ho_ten:$('tkTen').value,email:$('tkEmail').value,mat_khau:$('tkPass').value,vai_tro:$('tkVai').value});
+    toast(d.moi?'Đã tạo tài khoản mới':'Email đã có tài khoản, đã cấp quyền vào app');$('tkForm').reset();loadNames()}
+  catch(err){$('tkErr').textContent=err.message}
+  $('tkBtn').disabled=false});
 
 /* ---------- Nạp dữ liệu cũ ---------- */
 $('legacyGo').addEventListener('click',async()=>{
