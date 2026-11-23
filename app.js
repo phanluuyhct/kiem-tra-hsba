@@ -22,7 +22,9 @@ let curYM=today().slice(0,7);
 let recs=new Map(); // id -> record
 let loiDM=[];       // [{id,ten,thu_tu}]
 const names={};     // profile id -> tên
-let filt={st:'',khoa:'',q:'',nhan:false};
+let filt={st:'',khoa:'',q:'',nhan:false,nguon:''};
+const laCu=r=>r.nguon==='Google Sheet';
+const hopNguon=r=>!filt.nguon||(filt.nguon==='cu'?laCu(r):!laCu(r));
 let selected=new Set();
 let view='ho-so';
 
@@ -119,14 +121,14 @@ function writeErr(e){return 'Không lưu được: '+(e&&e.message||'lỗi khôn
 /* ---------- Danh sách ---------- */
 function filtered(){
   const q=filt.q.trim().toLowerCase();
-  return [...recs.values()].filter(r=>(!filt.khoa||r.khoa===filt.khoa)&&(!filt.st||stOf(r)===filt.st)&&(!filt.nhan||!r.ngayGiao)&&(!q||(r.hoTen||'').toLowerCase().includes(q)||(r.ma||'').includes(q)))
+  return [...recs.values()].filter(r=>hopNguon(r)&&(!filt.khoa||r.khoa===filt.khoa)&&(!filt.st||stOf(r)===filt.st)&&(!filt.nhan||!r.ngayGiao)&&(!q||(r.hoTen||'').toLowerCase().includes(q)||(r.ma||'').includes(q)))
    .sort((a,b)=>(a.khoa||'').localeCompare(b.khoa||'','vi')||(b.ngayRa||'').localeCompare(a.ngayRa||'')||String(b.ma).localeCompare(String(a.ma)));
 }
 function renderList(){
   const all=[...recs.values()];
   const khoas=[...new Set(all.map(r=>r.khoa))].sort((a,b)=>a.localeCompare(b,'vi'));
   const v=$('fKhoa').value;$('fKhoa').innerHTML='<option value="">Tất cả khoa</option>'+khoas.map(k=>`<option>${esc(k)}</option>`).join('');$('fKhoa').value=khoas.includes(v)?v:'';filt.khoa=$('fKhoa').value;
-  const base=all.filter(r=>!filt.khoa||r.khoa===filt.khoa);
+  const base=all.filter(r=>hopNguon(r)&&(!filt.khoa||r.khoa===filt.khoa));
   const cnt={chua:0,dat:0,khong:0};base.forEach(r=>cnt[stOf(r)]++);
   $('chips').innerHTML=`<button class="chip" data-st="" aria-pressed="${!filt.st}">Tất cả <b>${base.length}</b></button>`+
     Object.keys(ST).map(k=>`<button class="chip" data-st="${k}" aria-pressed="${filt.st===k}"><span class="sw" style="background:${STC[k]}"></span>${ST[k]} <b>${cnt[k]}</b></button>`).join('')+
@@ -153,6 +155,7 @@ function renderList(){
   tb.innerHTML=html.join('');updBulk();
 }
 $('chips').addEventListener('click',e=>{if(e.target.closest('[data-nhanf]')){filt.nhan=!filt.nhan;renderList();return}const b=e.target.closest('[data-st]');if(!b)return;filt.st=b.dataset.st;renderList()});
+$('fNguon').addEventListener('change',()=>{filt.nguon=$('fNguon').value;renderList()});
 $('fKhoa').addEventListener('change',()=>{filt.khoa=$('fKhoa').value;renderList()});
 $('q').addEventListener('input',()=>{filt.q=$('q').value;renderList()});
 $('tbody').addEventListener('click',async e=>{
