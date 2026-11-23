@@ -22,7 +22,7 @@ let curYM=today().slice(0,7);
 let recs=new Map(); // id -> record
 let loiDM=[];       // [{id,ten,thu_tu}]
 const names={};     // profile id -> tên
-let filt={st:'',khoa:'',q:''};
+let filt={st:'',khoa:'',q:'',nhan:false};
 let selected=new Set();
 let view='ho-so';
 
@@ -119,7 +119,7 @@ function writeErr(e){return 'Không lưu được: '+(e&&e.message||'lỗi khôn
 /* ---------- Danh sách ---------- */
 function filtered(){
   const q=filt.q.trim().toLowerCase();
-  return [...recs.values()].filter(r=>(!filt.khoa||r.khoa===filt.khoa)&&(!filt.st||stOf(r)===filt.st)&&(!q||(r.hoTen||'').toLowerCase().includes(q)||(r.ma||'').includes(q)))
+  return [...recs.values()].filter(r=>(!filt.khoa||r.khoa===filt.khoa)&&(!filt.st||stOf(r)===filt.st)&&(!filt.nhan||!r.ngayGiao)&&(!q||(r.hoTen||'').toLowerCase().includes(q)||(r.ma||'').includes(q)))
    .sort((a,b)=>(a.khoa||'').localeCompare(b.khoa||'','vi')||(b.ngayRa||'').localeCompare(a.ngayRa||'')||String(b.ma).localeCompare(String(a.ma)));
 }
 function renderList(){
@@ -129,7 +129,8 @@ function renderList(){
   const base=all.filter(r=>!filt.khoa||r.khoa===filt.khoa);
   const cnt={chua:0,dat:0,khong:0};base.forEach(r=>cnt[stOf(r)]++);
   $('chips').innerHTML=`<button class="chip" data-st="" aria-pressed="${!filt.st}">Tất cả <b>${base.length}</b></button>`+
-    Object.keys(ST).map(k=>`<button class="chip" data-st="${k}" aria-pressed="${filt.st===k}"><span class="sw" style="background:${STC[k]}"></span>${ST[k]} <b>${cnt[k]}</b></button>`).join('');
+    Object.keys(ST).map(k=>`<button class="chip" data-st="${k}" aria-pressed="${filt.st===k}"><span class="sw" style="background:${STC[k]}"></span>${ST[k]} <b>${cnt[k]}</b></button>`).join('')+
+    `<button class="chip" data-nhanf aria-pressed="${filt.nhan}" style="margin-left:12px"><span class="sw" style="background:var(--warn)"></span>Chưa nhận hồ sơ <b>${base.filter(r=>!r.ngayGiao).length}</b></button>`;
   const rows=filtered();const tb=$('tbody');
   if(!all.length){tb.innerHTML=`<tr><td colspan="13" class="empty">Chưa có hồ sơ ra viện nào trong ${ymLabel(curYM).toLowerCase()}.<br>Bấm <b>Nhập danh sách ra viện từ HIS</b> để lấy danh sách.</td></tr>`;updBulk();return}
   if(!rows.length){tb.innerHTML=`<tr><td colspan="13" class="empty">Không có hồ sơ phù hợp bộ lọc.</td></tr>`;updBulk();return}
@@ -145,25 +146,29 @@ function renderList(){
       <td style="font-weight:600">${r.hoTen?esc(r.hoTen.toUpperCase()):'<span class="muted" style="font-weight:400">Dữ liệu cũ</span>'}</td>
       <td class="mono">${esc(r.namSinh||'')}</td><td>${esc(r.gioi||'')}</td><td class="dc">${esc(r.diaChi||'')}</td>
       <td class="mono">${dt(r.ngayVao)}</td><td class="mono">${dt(r.ngayRa)}</td><td>${esc(r.huong||'')}</td>
-      <td><label class="nhan"><input type="checkbox" data-nhan="${r.k}" ${r.giao==='dat'?'checked':''} aria-label="Đã kiểm nhận ${esc(r.ma)}"><span class="muted">${r.giao==='dat'?fmtD(r.ngayGiao):'Chưa nhận'}</span></label></td>
+      <td><input type="date" class="nhan-d${r.ngayGiao?'':' trong'}" data-nhan="${r.k}" value="${r.ngayGiao||''}" min="${(r.ngayRa||'').slice(0,10)}" max="${today()}" aria-label="Ngày nhận hồ sơ ${esc(r.ma)}" title="Để trống nếu khoa chưa giao hồ sơ"></td>
       <td>${r.danhGia?`<span class="st ${r.danhGia}">${r.danhGia==='dat'?'Đạt':'Không đạt'}</span>`:'<span class="st chua">Chưa đánh giá</span>'}</td>
       <td class="loi-mini">${esc(loi)}</td></tr>`);
   });
   tb.innerHTML=html.join('');updBulk();
 }
-$('chips').addEventListener('click',e=>{const b=e.target.closest('[data-st]');if(!b)return;filt.st=b.dataset.st;renderList()});
+$('chips').addEventListener('click',e=>{if(e.target.closest('[data-nhanf]')){filt.nhan=!filt.nhan;renderList();return}const b=e.target.closest('[data-st]');if(!b)return;filt.st=b.dataset.st;renderList()});
 $('fKhoa').addEventListener('change',()=>{filt.khoa=$('fKhoa').value;renderList()});
 $('q').addEventListener('input',()=>{filt.q=$('q').value;renderList()});
 $('tbody').addEventListener('click',async e=>{
-  const nh=e.target.closest('[data-nhan]');if(nh){const r=recs.get(nh.dataset.nhan);if(!r)return;const on=nh.checked;nh.disabled=true;
-    const nr=(r.ngayRa||'').slice(0,10);const p=on?{giao:'dat',ngay_giao:today()<nr?nr:today(),nguoi_kt:me.id,cap_nhat_luc:new Date().toISOString()}:{giao:null,ngay_giao:null,cap_nhat_luc:new Date().toISOString()};
-    const {error}=await sb.from('hsba_ho_so').update(p).eq('id',r.id);nh.disabled=false;
-    if(error){nh.checked=!on;toast(writeErr(error));return}
-    r.giao=p.giao;r.ngayGiao=p.ngay_giao;toast((on?'Đã kiểm nhận ':'Đã bỏ kiểm nhận ')+r.ma);renderList();return}
-  if(e.target.closest('label.nhan'))return;
+  if(e.target.closest('[data-nhan]'))return;
   const c=e.target.closest('[data-chk]');if(c){c.checked?selected.add(c.dataset.chk):selected.delete(c.dataset.chk);c.closest('tr').classList.toggle('sel',c.checked);updBulk();return}
   const tr=e.target.closest('tr.row');if(tr)openDrawer(tr.dataset.k);
 });
+$('tbody').addEventListener('change',async e=>{const nh=e.target.closest('[data-nhan]');if(!nh)return;const r=recs.get(nh.dataset.nhan);if(!r)return;
+  const v=nh.value,nr=(r.ngayRa||'').slice(0,10);
+  if(v&&v<nr){toast('Ngày nhận không được trước ngày ra viện '+fmtD(nr));nh.value=r.ngayGiao||'';return}
+  if(v&&v>today()){toast('Ngày nhận không được sau hôm nay');nh.value=r.ngayGiao||'';return}
+  const p=v?{giao:'dat',ngay_giao:v,nguoi_kt:me.id,cap_nhat_luc:new Date().toISOString()}:{giao:null,ngay_giao:null,cap_nhat_luc:new Date().toISOString()};
+  nh.disabled=true;const {error}=await sb.from('hsba_ho_so').update(p).eq('id',r.id);nh.disabled=false;
+  if(error){nh.value=r.ngayGiao||'';toast(writeErr(error));return}
+  r.giao=p.giao;r.ngayGiao=p.ngay_giao;nh.classList.toggle('trong',!v);toast(v?`Đã ghi nhận ${r.ma} nhận ngày ${fmtD(v)}`:`Đã xoá ngày nhận của ${r.ma}`);
+  renderList();});
 $('chkAll').addEventListener('change',e=>{filtered().forEach(r=>e.target.checked?selected.add(r.k):selected.delete(r.k));renderList()});
 function updBulk(){const n=[...selected].filter(m=>recs.has(m)).length;$('bulk').hidden=!n;$('bulkN').textContent=`Đã chọn ${n} hồ sơ`}
 $('bulk').addEventListener('click',async e=>{const b=e.target.closest('[data-bulk]');if(!b)return;const a=b.dataset.bulk;
@@ -173,8 +178,6 @@ $('bulk').addEventListener('click',async e=>{const b=e.target.closest('[data-bul
   b.disabled=true;const now=new Date().toISOString();let err=null;
   try{
     if(a==='danhgia'&&ids.danhgia.length){
-      const chuaGiao=list.filter(r=>!r.danhGia&&!r.giao).map(r=>r.id);
-      if(chuaGiao.length){const {error}=await sb.from('hsba_ho_so').update({giao:'dat',ngay_giao:today()}).in('id',chuaGiao);if(error)throw error}
       const {error}=await sb.from('hsba_ho_so').update({danh_gia:'dat',nguoi_kt:me.id,cap_nhat_luc:now}).in('id',ids.danhgia);err=error}
   }catch(x){err=x}
   b.disabled=false;
@@ -198,26 +201,28 @@ $('scanForm').addEventListener('submit',async e=>{e.preventDefault();const v=$('
 let openK=null,draft=null;
 function openDrawer(k){
   const r=recs.get(k);if(!r)return;openK=k;draft={giao:r.giao||'',ngayGiao:r.ngayGiao||'',danhGia:r.danhGia||'',loi:[...(r.loi||[])],ghiChu:r.ghiChu||''};
-  if(!draft.danhGia){draft.danhGia=draft.loi.length?'khong':'dat';if(!draft.giao){draft.giao='dat';draft.ngayGiao=draft.ngayGiao||today()}}
+  if(!draft.danhGia){draft.danhGia=draft.loi.length?'khong':'dat'}
   $('dTitle').textContent=r.hoTen||'Hồ sơ '+r.ma;$('dSub').textContent=r.ma;
   $('dInfo').innerHTML=[['Khoa',r.khoa],['Năm sinh',r.namSinh],['Giới tính',r.gioi],['Địa chỉ',r.diaChi],['Ngày vào',fmtD(r.ngayVao)],['Ngày ra',fmtD(r.ngayRa)],['Hướng điều trị',r.huong],['Nguồn',r.nguon==='Google Sheet'?'Dữ liệu cũ từ Google Sheet':'HIS']].filter(x=>x[1]).map(([a,b])=>`<dt>${a}</dt><dd>${esc(b)}</dd>`).join('');
   $('dGhiChu').value=draft.ghiChu;$('dErr').textContent='';
+  $('dNgayNhan').value=r.ngayGiao||'';$('dNgayNhan').min=(r.ngayRa||'').slice(0,10);$('dNgayNhan').max=today();
   fillDrawer();fillDrawerMeta(r);
   $('drawer').hidden=false;$('scrim').hidden=false;$('segDG').querySelector('button').focus();
 }
 function fillDrawerMeta(r){$('dMeta').textContent=r.capNhatLuc?`Cập nhật lần cuối ${new Date(r.capNhatLuc).toLocaleString('vi-VN')}${r.nguoiKT?' bởi '+who(r.nguoiKT):''}`:'Chưa có cập nhật'}
+$('dNhanHomNay').addEventListener('click',()=>{$('dNgayNhan').value=today()});
 function fillDrawer(){
   $('segDG').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===draft.danhGia)));
   const all=[...new Set([...loiDM.map(l=>l.ten),...draft.loi])];
   $('dTags').innerHTML=all.length?all.map(t=>`<button type="button" class="tag" data-tag="${esc(t)}" aria-pressed="${draft.loi.includes(t)}">${esc(t)}</button>`).join(''):'<span class="muted">Danh mục lỗi đang trống.</span>';
 }
-$('segDG').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;draft.danhGia=b.dataset.v;if(draft.danhGia&&!draft.giao){draft.giao='dat';draft.ngayGiao=draft.ngayGiao||today()}
+$('segDG').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;draft.danhGia=b.dataset.v;
   $('dErr').textContent=draft.danhGia==='dat'&&draft.loi.length?'Hồ sơ đang có lỗi được chọn mà đánh giá Đạt. Kiểm tra lại nếu cần.':'';fillDrawer()});
 $('dTags').addEventListener('click',e=>{const b=e.target.closest('[data-tag]');if(!b)return;const t=b.dataset.tag;draft.loi=draft.loi.includes(t)?draft.loi.filter(x=>x!==t):[...draft.loi,t];
-  draft.danhGia=draft.loi.length?'khong':'dat';if(!draft.giao){draft.giao='dat';draft.ngayGiao=draft.ngayGiao||today()}$('dErr').textContent='';fillDrawer()});
+  draft.danhGia=draft.loi.length?'khong':'dat';$('dErr').textContent='';fillDrawer()});
 $('dSave').addEventListener('click',async()=>{
   draft.ghiChu=$('dGhiChu').value.trim();const r=recs.get(openK);
-  const g=draft.danhGia?(draft.giao||'dat'):(draft.giao||null);const nr=(r.ngayRa||'').slice(0,10);let ng=g?(draft.ngayGiao||today()):null;if(ng&&ng<nr)ng=nr;const patch={giao:g,ngayGiao:ng,danhGia:draft.danhGia||null,loi:draft.loi,ghiChu:draft.ghiChu,capNhatLuc:new Date().toISOString(),nguoiKT:me.id};
+  const nr=(r.ngayRa||'').slice(0,10);const ng=$('dNgayNhan').value||null;if(ng&&ng<nr){$('dErr').textContent='Ngày nhận hồ sơ không được trước ngày ra viện '+fmtD(nr);return}if(ng&&ng>today()){$('dErr').textContent='Ngày nhận hồ sơ không được sau hôm nay';return}const patch={giao:ng?'dat':null,ngayGiao:ng,danhGia:draft.danhGia||null,loi:draft.loi,ghiChu:draft.ghiChu,capNhatLuc:new Date().toISOString(),nguoiKT:me.id};
   $('dSave').disabled=true;
   try{await saveRec(r,patch);toast('Đã lưu hồ sơ '+r.ma);closeAll();renderList();$('scan').focus()}catch(e){$('dErr').textContent=writeErr(e)}
   $('dSave').disabled=false;
@@ -302,8 +307,8 @@ async function renderStats(){
   $('kyNote').textContent=ms.length===1?ymLabel(ms[0]):`${ymLabel(ms[0])} đến ${ymLabel(ms[ms.length-1]).replace('Tháng ','tháng ')}`;
   statRows=rows;
   const n=rows.length,dg=rows.filter(r=>r.danhGia).length,kd=rows.filter(r=>r.danhGia==='khong').length,dat=dg-kd;
-  const t=new Date(today());const old=rows.filter(r=>!r.danhGia&&r.ngayRa&&(t-new Date(r.ngayRa.slice(0,10)))/864e5>7);
-  $('kpis').innerHTML=[['Người bệnh ra viện',n.toLocaleString('vi-VN'),''],['Đã đánh giá',dg.toLocaleString('vi-VN'),fmtP(pct(dg,n))+' số ra viện'],['Tỷ lệ đạt',fmtP(pct(dat,dg)),`${dat.toLocaleString('vi-VN')} đạt · ${kd.toLocaleString('vi-VN')} không đạt`],['Chưa đánh giá quá 7 ngày',old.length,'tính đến hôm nay']]
+  const t=new Date(today());const chuaNhan=rows.filter(r=>!r.ngayGiao).length;const old=rows.filter(r=>!r.ngayGiao&&r.ngayRa&&(t-new Date(r.ngayRa.slice(0,10)))/864e5>7);
+  $('kpis').innerHTML=[['Người bệnh ra viện',n.toLocaleString('vi-VN'),''],['Đã đánh giá',dg.toLocaleString('vi-VN'),fmtP(pct(dg,n))+' số ra viện'],['Tỷ lệ đạt',fmtP(pct(dat,dg)),`${dat.toLocaleString('vi-VN')} đạt · ${kd.toLocaleString('vi-VN')} không đạt`],['Chưa nhận hồ sơ',chuaNhan.toLocaleString('vi-VN'),fmtP(pct(chuaNhan,n))+' số ra viện'],['Chưa giao quá 7 ngày',old.length,'tính đến hôm nay']]
     .map(([k,v,s])=>`<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
   drawTrend(rows,ms);
   const byK=groupKhoa(rows);
@@ -313,7 +318,7 @@ async function renderStats(){
   const ec={};rows.forEach(r=>(r.loi||[]).forEach(l=>ec[l]=(ec[l]||0)+1));const top=Object.entries(ec).sort((a,b)=>b[1]-a[1]).slice(0,10);const mx=top.length?top[0][1]:1;
   $('errs').innerHTML=top.length?top.map(([l,c])=>`<li><span>${esc(l)}</span><div class="t"><i style="width:${c/mx*100}%"></i></div><span class="n">${c}</span></li>`).join(''):'<li class="muted">Chưa ghi nhận lỗi nào trong kỳ này.</li>';
   const od={};old.forEach(r=>od[r.khoa]=(od[r.khoa]||0)+1);
-  $('overdue').innerHTML=old.length?`<table><tbody>${Object.entries(od).sort((a,b)=>b[1]-a[1]).map(([k,c])=>`<tr><td>${esc(k)}</td><td class="num" style="font-weight:700;color:var(--warn)">${c}</td></tr>`).join('')}</tbody></table>`:'<p class="muted" style="margin:0">Không có hồ sơ nào chưa đánh giá quá 7 ngày.</p>';
+  $('overdue').innerHTML=old.length?`<table><tbody>${Object.entries(od).sort((a,b)=>b[1]-a[1]).map(([k,c])=>`<tr><td>${esc(k)}</td><td class="num" style="font-weight:700;color:var(--warn)">${c}</td></tr>`).join('')}</tbody></table>`:'<p class="muted" style="margin:0">Không có hồ sơ nào chưa giao quá 7 ngày.</p>';
 }
 function groupKhoa(rows){const byK={};rows.forEach(r=>{const o=byK[r.khoa]=byK[r.khoa]||{n:0,g:0,d:0,k:0};o.n++;if(r.danhGia)o.g++;if(r.danhGia)o.d++;if(r.danhGia==='khong')o.k++});return byK}
 function drawTrend(rows,ms){
@@ -345,8 +350,8 @@ $('btnExcel').addEventListener('click',async()=>{
   try{
     await loadScript(XLSXJS);
     const rows=statRows.slice().sort((a,b)=>(a.khoa||'').localeCompare(b.khoa||'','vi')||(a.ngayRa||'').localeCompare(b.ngayRa||''));
-    const ct=[['Mã hồ sơ','Họ tên','Năm sinh','Giới tính','Địa chỉ','Khoa','Ngày vào','Ngày ra','Hướng điều trị','Kiểm nhận hồ sơ','Đánh giá P.KHTH','Lỗi','Ghi chú','Người kiểm tra']]
-      .concat(rows.map(r=>[r.ma,r.hoTen,r.namSinh,r.gioi,r.diaChi,r.khoa,fmtD(r.ngayVao),fmtD(r.ngayRa),r.huong,r.giao==='dat'?'Đã nhận '+fmtD(r.ngayGiao):'Chưa nhận',r.danhGia==='dat'?'Đạt':r.danhGia==='khong'?'Không đạt':'Chưa đánh giá',(r.loi||[]).join('; '),r.ghiChu||'',who(r.nguoiKT)]));
+    const ct=[['Mã hồ sơ','Họ tên','Năm sinh','Giới tính','Địa chỉ','Khoa','Ngày vào','Ngày ra','Hướng điều trị','Ngày nhận hồ sơ','Đánh giá P.KHTH','Lỗi','Ghi chú','Người kiểm tra']]
+      .concat(rows.map(r=>[r.ma,r.hoTen,r.namSinh,r.gioi,r.diaChi,r.khoa,fmtD(r.ngayVao),fmtD(r.ngayRa),r.huong,r.ngayGiao?fmtD(r.ngayGiao):'Chưa nhận',r.danhGia==='dat'?'Đạt':r.danhGia==='khong'?'Không đạt':'Chưa đánh giá',(r.loi||[]).join('; '),r.ghiChu||'',who(r.nguoiKT)]));
     const byK=groupKhoa(rows);
     const tk=[['Khoa','Ra viện','Đã đánh giá','Tỷ lệ đánh giá (%)','Đạt','Không đạt','Tỷ lệ đạt (%)']].concat(Object.entries(byK).sort((a,b)=>a[0].localeCompare(b[0],'vi')).map(([k,o])=>[k,o.n,o.d,pct(o.d,o.n),o.d-o.k,o.k,pct(o.d-o.k,o.d)]));
     const ec={};rows.forEach(r=>(r.loi||[]).forEach(l=>ec[l]=(ec[l]||0)+1));

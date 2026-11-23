@@ -74,8 +74,8 @@ label.f{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--
 .tbl-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
 table{border-collapse:collapse;width:100%;font-size:13.8px}
 #tblHoSo{min-width:1450px}
-.nhan{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12.5px;white-space:nowrap}
-.nhan input{width:18px;height:18px;accent-color:var(--good)}
+.nhan-d{width:150px;padding:4px 6px;font-size:13px}
+.nhan-d.trong{border-color:var(--warn);background:var(--warn-soft)}
 #tblHoSo td{vertical-align:top}
 .dc{max-width:230px;font-size:12.5px}
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
@@ -247,7 +247,7 @@ body{font-family:var(--f-body);min-height:100vh;padding-top:env(safe-area-inset-
       <table id="tblHoSo">
         <thead><tr>
           <th style="width:34px"><input type="checkbox" id="chkAll" aria-label="Chọn tất cả"></th>
-          <th class="num">STT</th><th>Mã hồ sơ</th><th>Họ tên</th><th>Năm sinh</th><th>Giới tính</th><th>Địa chỉ</th><th>Ngày vào</th><th>Ngày ra</th><th>Hướng điều trị</th><th>Kiểm nhận hồ sơ</th><th>Đánh giá</th><th>Nội dung lưu ý</th>
+          <th class="num">STT</th><th>Mã hồ sơ</th><th>Họ tên</th><th>Năm sinh</th><th>Giới tính</th><th>Địa chỉ</th><th>Ngày vào</th><th>Ngày ra</th><th>Hướng điều trị</th><th>Ngày nhận hồ sơ</th><th>Đánh giá</th><th>Nội dung lưu ý</th>
         </tr></thead>
         <tbody id="tbody"><tr><td colspan="13" class="empty">Đang tải…</td></tr></tbody>
       </table>
@@ -282,7 +282,7 @@ body{font-family:var(--f-body);min-height:100vh;padding-top:env(safe-area-inset-
     </div>
     <div class="two">
       <div class="panel"><h2>Lỗi gặp nhiều nhất</h2><ol class="errs" id="errs"></ol></div>
-      <div class="panel"><h2>Hồ sơ chưa đánh giá quá 7 ngày</h2><div id="overdue"></div></div>
+      <div class="panel"><h2>Hồ sơ chưa giao quá 7 ngày</h2><div id="overdue"></div></div>
     </div>
   </section>
 
@@ -324,6 +324,7 @@ body{font-family:var(--f-body);min-height:100vh;padding-top:env(safe-area-inset-
   </div>
   <div class="db">
     <dl class="kv" id="dInfo"></dl>
+    <div class="step"><h3>Kiểm nhận hồ sơ</h3><div class="row2"><label class="f" style="width:190px">Ngày nhận hồ sơ<input type="date" id="dNgayNhan"></label><button class="btn small" type="button" id="dNhanHomNay" style="align-self:flex-end">Hôm nay</button></div></div>
     <div class="step">
       <h3>Đánh giá của P.KHTH</h3>
       <div class="seg" id="segDG"><button type="button" data-v="dat">Đạt</button><button type="button" data-v="khong">Không đạt</button><button type="button" data-v="">Chưa đánh giá</button></div>
