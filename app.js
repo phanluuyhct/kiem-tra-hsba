@@ -156,7 +156,7 @@ $('fKhoa').addEventListener('change',()=>{filt.khoa=$('fKhoa').value;renderList(
 $('q').addEventListener('input',()=>{filt.q=$('q').value;renderList()});
 $('tbody').addEventListener('click',async e=>{
   const nh=e.target.closest('[data-nhan]');if(nh){const r=recs.get(nh.dataset.nhan);if(!r)return;const on=nh.checked;nh.disabled=true;
-    const p=on?{giao:'dat',ngay_giao:today(),nguoi_kt:me.id,cap_nhat_luc:new Date().toISOString()}:{giao:null,ngay_giao:null,cap_nhat_luc:new Date().toISOString()};
+    const nr=(r.ngayRa||'').slice(0,10);const p=on?{giao:'dat',ngay_giao:today()<nr?nr:today(),nguoi_kt:me.id,cap_nhat_luc:new Date().toISOString()}:{giao:null,ngay_giao:null,cap_nhat_luc:new Date().toISOString()};
     const {error}=await sb.from('hsba_ho_so').update(p).eq('id',r.id);nh.disabled=false;
     if(error){nh.checked=!on;toast(writeErr(error));return}
     r.giao=p.giao;r.ngayGiao=p.ngay_giao;toast((on?'Đã kiểm nhận ':'Đã bỏ kiểm nhận ')+r.ma);renderList();return}
@@ -217,7 +217,7 @@ $('dTags').addEventListener('click',e=>{const b=e.target.closest('[data-tag]');i
   draft.danhGia=draft.loi.length?'khong':'dat';if(!draft.giao){draft.giao='dat';draft.ngayGiao=draft.ngayGiao||today()}$('dErr').textContent='';fillDrawer()});
 $('dSave').addEventListener('click',async()=>{
   draft.ghiChu=$('dGhiChu').value.trim();const r=recs.get(openK);
-  const g=draft.danhGia?(draft.giao||'dat'):(draft.giao||null);const patch={giao:g,ngayGiao:g?(draft.ngayGiao||today()):null,danhGia:draft.danhGia||null,loi:draft.loi,ghiChu:draft.ghiChu,capNhatLuc:new Date().toISOString(),nguoiKT:me.id};
+  const g=draft.danhGia?(draft.giao||'dat'):(draft.giao||null);const nr=(r.ngayRa||'').slice(0,10);let ng=g?(draft.ngayGiao||today()):null;if(ng&&ng<nr)ng=nr;const patch={giao:g,ngayGiao:ng,danhGia:draft.danhGia||null,loi:draft.loi,ghiChu:draft.ghiChu,capNhatLuc:new Date().toISOString(),nguoiKT:me.id};
   $('dSave').disabled=true;
   try{await saveRec(r,patch);toast('Đã lưu hồ sơ '+r.ma);closeAll();renderList();$('scan').focus()}catch(e){$('dErr').textContent=writeErr(e)}
   $('dSave').disabled=false;
