@@ -187,6 +187,7 @@ $('scanForm').addEventListener('submit',async e=>{e.preventDefault();const v=$('
 let openK=null,draft=null;
 function openDrawer(k){
   const r=recs.get(k);if(!r)return;openK=k;draft={giao:r.giao||'',ngayGiao:r.ngayGiao||'',danhGia:r.danhGia||'',loi:[...(r.loi||[])],ghiChu:r.ghiChu||''};
+  if(!draft.danhGia){draft.danhGia=draft.loi.length?'khong':'dat';if(!draft.giao){draft.giao='dat';draft.ngayGiao=draft.ngayGiao||today()}}
   $('dTitle').textContent=r.hoTen||'Hồ sơ '+r.ma;$('dSub').textContent=r.ma;
   $('dInfo').innerHTML=[['Khoa',r.khoa],['Năm sinh',r.namSinh],['Giới tính',r.gioi],['Ngày vào',fmtD(r.ngayVao)],['Ngày ra',fmtD(r.ngayRa)],['Hướng điều trị',r.huong],['Nguồn',r.nguon==='Google Sheet'?'Dữ liệu cũ từ Google Sheet':'HIS']].filter(x=>x[1]).map(([a,b])=>`<dt>${a}</dt><dd>${esc(b)}</dd>`).join('');
   $('dGhiChu').value=draft.ghiChu;$('dErr').textContent='';
@@ -206,7 +207,7 @@ $('segDG').addEventListener('click',e=>{const b=e.target.closest('button');if(!b
   $('dErr').textContent=draft.danhGia==='dat'&&draft.loi.length?'Hồ sơ đang có lỗi được chọn mà đánh giá Đạt. Kiểm tra lại nếu cần.':'';fillDrawer()});
 $('dNgayGiao').addEventListener('change',()=>draft.ngayGiao=$('dNgayGiao').value);
 $('dTags').addEventListener('click',e=>{const b=e.target.closest('[data-tag]');if(!b)return;const t=b.dataset.tag;draft.loi=draft.loi.includes(t)?draft.loi.filter(x=>x!==t):[...draft.loi,t];
-  if(draft.loi.length&&draft.danhGia!=='khong'){draft.danhGia='khong';if(!draft.giao){draft.giao='dat';draft.ngayGiao=draft.ngayGiao||today()}}fillDrawer()});
+  draft.danhGia=draft.loi.length?'khong':'dat';if(!draft.giao){draft.giao='dat';draft.ngayGiao=draft.ngayGiao||today()}$('dErr').textContent='';fillDrawer()});
 $('dSave').addEventListener('click',async()=>{
   draft.ghiChu=$('dGhiChu').value.trim();const r=recs.get(openK);
   const patch={giao:draft.giao||null,ngayGiao:draft.giao?(draft.ngayGiao||today()):null,danhGia:draft.danhGia||null,loi:draft.loi,ghiChu:draft.ghiChu,capNhatLuc:new Date().toISOString(),nguoiKT:me.id};
