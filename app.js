@@ -120,7 +120,7 @@ function writeErr(e){return 'Không lưu được: '+(e&&e.message||'lỗi khôn
 function filtered(){
   const q=filt.q.trim().toLowerCase();
   return [...recs.values()].filter(r=>(!filt.khoa||r.khoa===filt.khoa)&&(!filt.st||stOf(r)===filt.st)&&(!q||(r.hoTen||'').toLowerCase().includes(q)||(r.ma||'').includes(q)))
-   .sort((a,b)=>(a.khoa||'').localeCompare(b.khoa||'','vi')||(a.ngayRa||'').localeCompare(b.ngayRa||''));
+   .sort((a,b)=>(a.khoa||'').localeCompare(b.khoa||'','vi')||(b.ngayRa||'').localeCompare(a.ngayRa||'')||String(b.ma).localeCompare(String(a.ma)));
 }
 function renderList(){
   const all=[...recs.values()];
