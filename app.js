@@ -22,9 +22,9 @@ let curYM=today().slice(0,7);
 let recs=new Map(); // id -> record
 let loiDM=[];       // [{id,ten,thu_tu}]
 const names={};     // profile id -> tên
-let filt={st:'',khoa:'',q:'',nhan:false,nguon:''};
+let filt={st:'',khoa:'',q:'',nhan:false,nguon:'',tu:'',den:''};
 const laCu=r=>r.nguon==='Google Sheet';
-const hopNguon=r=>!filt.nguon||(filt.nguon==='cu'?laCu(r):!laCu(r));
+const hopNguon=r=>{const d=(r.ngayRa||'').slice(0,10);return (!filt.nguon||(filt.nguon==='cu'?laCu(r):!laCu(r)))&&(!filt.tu||d>=filt.tu)&&(!filt.den||d<=filt.den)};
 let selected=new Set();
 let view='ho-so';
 
@@ -98,10 +98,12 @@ const who=id=>id?(names[id]||'Cán bộ'):'';
 /* ---------- Tháng ---------- */
 function monthOptions(){const out=[];const d=new Date();d.setDate(1);for(let i=0;i<14;i++){out.push(`${d.getFullYear()}-${pad(d.getMonth()+1)}`);d.setMonth(d.getMonth()-1)}return out}
 function fillMonths(){$('selThang').innerHTML=monthOptions().map(m=>`<option value="${m}">${ymLabel(m)}</option>`).join('');$('selThang').value=curYM}
-$('selThang').addEventListener('change',()=>{curYM=$('selThang').value;selected.clear();loadMonth()});
+function ganKhoangNgay(){['fTu','fDen'].forEach(id=>{$(id).value='';$(id).min=curYM+'-01';$(id).max=lastDay(curYM)});filt.tu=filt.den=''}
+$('selThang').addEventListener('change',()=>{curYM=$('selThang').value;selected.clear();ganKhoangNgay();loadMonth()});
 
 /* ---------- Tải dữ liệu ---------- */
 async function loadMonth(){
+  if($('fTu').min!==curYM+'-01')ganKhoangNgay();
   recs=new Map();renderList();$('loading').hidden=false;$('loading').textContent='Đang tải dữ liệu…';
   try{const rows=await fetchRange(curYM+'-01',lastDay(curYM));recs=new Map(rows.map(r=>{const x=fromRow(r);return [x.k,x]}));$('loading').hidden=true;}
   catch(e){$('loading').textContent='Không tải được dữ liệu: '+(e.message||e)}
@@ -155,6 +157,7 @@ function renderList(){
   tb.innerHTML=html.join('');updBulk();
 }
 $('chips').addEventListener('click',e=>{if(e.target.closest('[data-nhanf]')){filt.nhan=!filt.nhan;renderList();return}const b=e.target.closest('[data-st]');if(!b)return;filt.st=b.dataset.st;renderList()});
+['fTu','fDen'].forEach(id=>$(id).addEventListener('change',()=>{filt.tu=$('fTu').value;filt.den=$('fDen').value;renderList()}));
 $('fNguon').addEventListener('change',()=>{filt.nguon=$('fNguon').value;renderList()});
 $('fKhoa').addEventListener('change',()=>{filt.khoa=$('fKhoa').value;renderList()});
 $('q').addEventListener('input',()=>{filt.q=$('q').value;renderList()});

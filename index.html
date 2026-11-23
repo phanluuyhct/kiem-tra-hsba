@@ -241,6 +241,8 @@ body{font-family:var(--f-body);min-height:100vh;padding-top:env(safe-area-inset-
       <label class="f grow">Tìm theo tên người bệnh<input id="q" placeholder="Gõ tên hoặc một phần mã"></label>
       <label class="f">Khoa<select id="fKhoa"></select></label>
       <label class="f">Nguồn<select id="fNguon"><option value="">Tất cả</option><option value="his">Chỉ hồ sơ HIS</option><option value="cu">Chỉ dữ liệu cũ</option></select></label>
+      <label class="f">Ra viện từ ngày<input type="date" id="fTu"></label>
+      <label class="f">đến ngày<input type="date" id="fDen"></label>
       <button class="btn primary" id="btnImport" type="button">Nhập danh sách ra viện từ HIS</button>
     </div>
     <div class="chips" id="chips"></div>
@@ -407,6 +409,6 @@ function parseHisPages(pages){ // pages: [{w, items:[{x,y,h,s}]}]
 
 
 </script>
-<script src="app.js?v=202611230849"></script>
+<script src="app.js?v=202611230857"></script>
 </body>
 </html>
