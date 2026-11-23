@@ -17,7 +17,8 @@ const lastDay=ym=>{const [y,m]=ym.split('-').map(Number);return `${ym}-${pad(new
 let tt;function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(tt);tt=setTimeout(()=>el.hidden=true,3000)}
 function screen(n){['scrLogin','scrNoAccess','scrApp'].forEach(s=>$(s).hidden=s!==n)}
 
-let me=null,meProfile=null,isManager=false;
+let me=null,meProfile=null,isManager=false,isKhoa=false;
+const DS_KHOA=['Khoa Chấn thương chỉnh hình và phẫu thuật thần kinh','Khoa Điều trị cao cấp','Khoa Hồi sức cấp cứu','Khoa Lao, Bệnh phổi, Da liễu','Khoa Ngoại tổng hợp','Khoa Nội thận - khớp','Khoa Nội tim mạch','Khoa Phụ sản và Kế hoạch hóa gia đình','Khoa Răng - Hàm - Mặt, Mắt','Khoa Tai mũi họng','Khoa Tâm thần kinh','Khoa Tiêu hóa, máu, nội tiết','Khoa Truyền nhiễm','Trung tâm Ung bướu','Đơn vị Thẩm mỹ','YC 6-7'];
 let curYM=today().slice(0,7);
 let recs=new Map(); // id -> record
 let loiDM=[];       // [{id,ten,thu_tu}]
@@ -81,9 +82,12 @@ async function start(){
   const {data:{session}}=await sb.auth.getSession();
   if(!session){screen('scrLogin');return}
   if(started)return;started=true;me=session.user;
-  const {data:prof}=await sb.from('hsba_tai_khoan').select('user_id,ho_ten,vai_tro,hoat_dong').eq('user_id',me.id).maybeSingle();
+  const {data:prof}=await sb.from('hsba_tai_khoan').select('*').eq('user_id',me.id).maybeSingle();
   meProfile=prof;if(!prof||!prof.hoat_dong){started=false;$('naText').textContent=prof?'Tài khoản đang chờ quản trị app duyệt. Khi được duyệt, anh/chị đăng nhập lại là dùng được.':'Tài khoản của anh/chị chưa được cấp quyền dùng app kiểm tra hồ sơ bệnh án. Nhờ quản trị app thêm ở tab “Tài khoản”.';screen('scrNoAccess');return}
-  isManager=prof.vai_tro==='quan_tri';
+  isManager=prof.vai_tro==='quan_tri';isKhoa=prof.vai_tro==='khoa';
+  if(isKhoa&&!prof.khoa){started=false;$('naText').textContent='Tài khoản khoa chưa được gán khoa. Nhờ quản trị app chọn khoa cho tài khoản này ở tab “Tài khoản”.';screen('scrNoAccess');return}
+  document.body.classList.toggle('chi-xem',isKhoa);
+  if(isKhoa)$('chiXemNote').textContent=`Tài khoản ${prof.khoa}: chỉ xem hồ sơ và các lỗi P.KHTH ghi nhận của khoa mình.`;
   $('tabCanBo').hidden=!isManager;$('meName').textContent=prof.ho_ten||me.email;
   screen('scrApp');
   fillMonths();route();
@@ -92,7 +96,7 @@ async function start(){
 
 /* ---------- Tên cán bộ ---------- */
 let profilesAll=[];
-async function loadNames(){const {data}=await sb.from('hsba_tai_khoan').select('user_id,ho_ten,email,vai_tro,hoat_dong,tao_luc').order('ho_ten');profilesAll=data||[];profilesAll.forEach(p=>names[p.user_id]=p.ho_ten);renderList();if(view==='can-bo')renderCanBo()}
+async function loadNames(){const {data}=await sb.from('hsba_tai_khoan').select('*').order('ho_ten');profilesAll=data||[];profilesAll.forEach(p=>names[p.user_id]=p.ho_ten);renderList();if(view==='can-bo')renderCanBo()}
 const who=id=>id?(names[id]||'Cán bộ'):'';
 
 /* ---------- Tháng ---------- */
@@ -150,7 +154,7 @@ function renderList(){
       <td style="font-weight:600">${r.hoTen?esc(r.hoTen.toUpperCase()):'<span class="muted" style="font-weight:400">Dữ liệu cũ</span>'}</td>
       <td class="mono">${esc(r.namSinh||'')}</td><td>${esc(r.gioi||'')}</td><td class="dc">${esc(r.diaChi||'')}</td>
       <td class="mono">${dt(r.ngayVao)}</td><td class="mono">${dt(r.ngayRa)}</td><td>${esc(r.huong||'')}</td>
-      <td><input type="date" class="nhan-d${r.ngayGiao?'':' trong'}" data-nhan="${r.k}" value="${r.ngayGiao||''}" min="${(r.ngayRa||'').slice(0,10)}" max="${today()}" aria-label="Ngày nhận hồ sơ ${esc(r.ma)}" title="Để trống nếu khoa chưa giao hồ sơ"></td>
+      <td><input type="date" class="nhan-d${r.ngayGiao?'':' trong'}" data-nhan="${r.k}" ${isKhoa?'disabled':''} value="${r.ngayGiao||''}" min="${(r.ngayRa||'').slice(0,10)}" max="${today()}" aria-label="Ngày nhận hồ sơ ${esc(r.ma)}" title="Để trống nếu khoa chưa giao hồ sơ"></td>
       <td>${r.danhGia?`<span class="st ${r.danhGia}">${r.danhGia==='dat'?'Đạt':'Không đạt'}</span>`:'<span class="st chua">Chưa đánh giá</span>'}</td>
       <td class="loi-mini">${esc(loi)}</td></tr>`);
   });
@@ -402,10 +406,13 @@ function renderCanBo(){
   const ds=[...profilesAll].sort((x,y)=>(x.hoat_dong-y.hoat_dong)||String(x.ho_ten).localeCompare(y.ho_ten,'vi'));
   $('cbList').innerHTML=ds.length?ds.map(p=>{const self=p.user_id===me.id;
     return `<div class="cb-row"><span>${esc(p.ho_ten)}<div class="muted" style="font-size:12px">${esc(p.email||'')}${p.hoat_dong?'':' · <b>chờ duyệt / đã khoá</b>'}</div></span>
-      <select data-vai="${p.user_id}" ${self?'disabled':''} aria-label="Vai trò"><option value="can_bo" ${p.vai_tro==='can_bo'?'selected':''}>Cán bộ</option><option value="quan_tri" ${p.vai_tro==='quan_tri'?'selected':''}>Quản trị</option></select>
+      <select data-vai="${p.user_id}" ${self?'disabled':''} aria-label="Vai trò"><option value="can_bo" ${p.vai_tro==='can_bo'?'selected':''}>Cán bộ</option><option value="quan_tri" ${p.vai_tro==='quan_tri'?'selected':''}>Quản trị</option><option value="khoa" ${p.vai_tro==='khoa'?'selected':''}>Khoa (chỉ xem)</option></select>
+      ${p.vai_tro==='khoa'?`<select data-gankhoa="${p.user_id}" aria-label="Khoa" style="max-width:220px"><option value="">– Chọn khoa –</option>${[...new Set([...DS_KHOA,...[...recs.values()].map(r=>r.khoa).filter(Boolean),p.khoa||''])].filter(Boolean).sort((a,b)=>a.localeCompare(b,'vi')).map(k=>`<option ${k===p.khoa?'selected':''}>${esc(k)}</option>`).join('')}</select>`:''}
       ${self?'':`<button class="btn small ${p.hoat_dong?'':'primary'}" type="button" data-khoa="${p.user_id}">${p.hoat_dong?'Khoá':'Duyệt'}</button>`}</div>`}).join(''):'<div class="cb-row muted">Chưa có tài khoản.</div>';
 }
-$('cbList').addEventListener('change',async e=>{const s=e.target.closest('[data-vai]');if(!s)return;
+$('cbList').addEventListener('change',async e=>{const gk=e.target.closest('[data-gankhoa]');
+  if(gk){const {error}=await sb.from('hsba_tai_khoan').update({khoa:gk.value||null}).eq('user_id',gk.dataset.gankhoa);if(error)toast(writeErr(error));else toast('Đã gán '+(gk.value||'(trống)')+' cho '+names[gk.dataset.gankhoa]);loadNames();return}
+  const s=e.target.closest('[data-vai]');if(!s)return;
   const {error}=await sb.from('hsba_tai_khoan').update({vai_tro:s.value}).eq('user_id',s.dataset.vai);
   if(error){toast(writeErr(error))}else toast('Đã đổi vai trò của '+names[s.dataset.vai]);loadNames()});
 $('cbList').addEventListener('click',async e=>{const k=e.target.closest('[data-khoa]');if(!k)return;
@@ -432,7 +439,7 @@ $('legacyGo').addEventListener('click',async()=>{
 });
 
 /* ---------- Điều hướng ---------- */
-function route(){const h=location.hash.slice(1);const ok=['ho-so','dashboard','danh-muc'].concat(isManager?['can-bo']:[]);view=ok.includes(h)?h:'ho-so';
+function route(){const h=location.hash.slice(1);const ok=['ho-so','dashboard'].concat(isKhoa?[]:['danh-muc']).concat(isManager?['can-bo']:[]);view=ok.includes(h)?h:'ho-so';
   document.querySelectorAll('[data-view]').forEach(s=>s.hidden=s.dataset.view!==view);
   document.querySelectorAll('nav.tabs a').forEach(a=>a.dataset.tab===view?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current'));
   if(view==='dashboard')renderStats();if(view==='can-bo')renderCanBo();}
