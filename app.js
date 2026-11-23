@@ -131,12 +131,12 @@ function renderList(){
   $('chips').innerHTML=`<button class="chip" data-st="" aria-pressed="${!filt.st}">Tất cả <b>${base.length}</b></button>`+
     Object.keys(ST).map(k=>`<button class="chip" data-st="${k}" aria-pressed="${filt.st===k}"><span class="sw" style="background:${STC[k]}"></span>${ST[k]} <b>${cnt[k]}</b></button>`).join('');
   const rows=filtered();const tb=$('tbody');
-  if(!all.length){tb.innerHTML=`<tr><td colspan="12" class="empty">Chưa có hồ sơ ra viện nào trong ${ymLabel(curYM).toLowerCase()}.<br>Bấm <b>Nhập danh sách ra viện từ HIS</b> để lấy danh sách.</td></tr>`;updBulk();return}
-  if(!rows.length){tb.innerHTML=`<tr><td colspan="12" class="empty">Không có hồ sơ phù hợp bộ lọc.</td></tr>`;updBulk();return}
+  if(!all.length){tb.innerHTML=`<tr><td colspan="13" class="empty">Chưa có hồ sơ ra viện nào trong ${ymLabel(curYM).toLowerCase()}.<br>Bấm <b>Nhập danh sách ra viện từ HIS</b> để lấy danh sách.</td></tr>`;updBulk();return}
+  if(!rows.length){tb.innerHTML=`<tr><td colspan="13" class="empty">Không có hồ sơ phù hợp bộ lọc.</td></tr>`;updBulk();return}
   const html=[];let lastK=null;const nBy={};rows.forEach(r=>nBy[r.khoa]=(nBy[r.khoa]||0)+1);
   let stt=0;
   rows.forEach(r=>{
-    if(r.khoa!==lastK){lastK=r.khoa;stt=0;html.push(`<tr class="grp"><td colspan="12">${esc(r.khoa||'Chưa rõ khoa')} - ${nBy[r.khoa]} NB</td></tr>`)}
+    if(r.khoa!==lastK){lastK=r.khoa;stt=0;html.push(`<tr class="grp"><td colspan="13">${esc(r.khoa||'Chưa rõ khoa')} - ${nBy[r.khoa]} NB</td></tr>`)}
     stt++;const loi=[...(r.loi||[]),r.ghiChu].filter(Boolean).join('; ');
     const dt=s=>{if(!s)return '';const [d,t]=String(s).split(' ');return `${fmtD(d)}${t?'<div class="muted" style="font-size:12px">'+esc(t)+'</div>':''}`};
     html.push(`<tr class="row${selected.has(r.k)?' sel':''}" data-k="${r.k}">
@@ -145,6 +145,7 @@ function renderList(){
       <td style="font-weight:600">${r.hoTen?esc(r.hoTen.toUpperCase()):'<span class="muted" style="font-weight:400">Dữ liệu cũ</span>'}</td>
       <td class="mono">${esc(r.namSinh||'')}</td><td>${esc(r.gioi||'')}</td><td class="dc">${esc(r.diaChi||'')}</td>
       <td class="mono">${dt(r.ngayVao)}</td><td class="mono">${dt(r.ngayRa)}</td><td>${esc(r.huong||'')}</td>
+      <td><label class="nhan"><input type="checkbox" data-nhan="${r.k}" ${r.giao==='dat'?'checked':''} aria-label="Đã kiểm nhận ${esc(r.ma)}"><span class="muted">${r.giao==='dat'?fmtD(r.ngayGiao):'Chưa nhận'}</span></label></td>
       <td>${r.danhGia?`<span class="st ${r.danhGia}">${r.danhGia==='dat'?'Đạt':'Không đạt'}</span>`:'<span class="st chua">Chưa đánh giá</span>'}</td>
       <td class="loi-mini">${esc(loi)}</td></tr>`);
   });
@@ -153,7 +154,13 @@ function renderList(){
 $('chips').addEventListener('click',e=>{const b=e.target.closest('[data-st]');if(!b)return;filt.st=b.dataset.st;renderList()});
 $('fKhoa').addEventListener('change',()=>{filt.khoa=$('fKhoa').value;renderList()});
 $('q').addEventListener('input',()=>{filt.q=$('q').value;renderList()});
-$('tbody').addEventListener('click',e=>{
+$('tbody').addEventListener('click',async e=>{
+  const nh=e.target.closest('[data-nhan]');if(nh){const r=recs.get(nh.dataset.nhan);if(!r)return;const on=nh.checked;nh.disabled=true;
+    const p=on?{giao:'dat',ngay_giao:today(),nguoi_kt:me.id,cap_nhat_luc:new Date().toISOString()}:{giao:null,ngay_giao:null,cap_nhat_luc:new Date().toISOString()};
+    const {error}=await sb.from('hsba_ho_so').update(p).eq('id',r.id);nh.disabled=false;
+    if(error){nh.checked=!on;toast(writeErr(error));return}
+    r.giao=p.giao;r.ngayGiao=p.ngay_giao;toast((on?'Đã kiểm nhận ':'Đã bỏ kiểm nhận ')+r.ma);renderList();return}
+  if(e.target.closest('label.nhan'))return;
   const c=e.target.closest('[data-chk]');if(c){c.checked?selected.add(c.dataset.chk):selected.delete(c.dataset.chk);c.closest('tr').classList.toggle('sel',c.checked);updBulk();return}
   const tr=e.target.closest('tr.row');if(tr)openDrawer(tr.dataset.k);
 });
@@ -338,15 +345,15 @@ $('btnExcel').addEventListener('click',async()=>{
   try{
     await loadScript(XLSXJS);
     const rows=statRows.slice().sort((a,b)=>(a.khoa||'').localeCompare(b.khoa||'','vi')||(a.ngayRa||'').localeCompare(b.ngayRa||''));
-    const ct=[['Mã hồ sơ','Họ tên','Năm sinh','Giới tính','Địa chỉ','Khoa','Ngày vào','Ngày ra','Hướng điều trị','Đánh giá P.KHTH','Lỗi','Ghi chú','Người kiểm tra']]
-      .concat(rows.map(r=>[r.ma,r.hoTen,r.namSinh,r.gioi,r.diaChi,r.khoa,fmtD(r.ngayVao),fmtD(r.ngayRa),r.huong,r.danhGia==='dat'?'Đạt':r.danhGia==='khong'?'Không đạt':'Chưa đánh giá',(r.loi||[]).join('; '),r.ghiChu||'',who(r.nguoiKT)]));
+    const ct=[['Mã hồ sơ','Họ tên','Năm sinh','Giới tính','Địa chỉ','Khoa','Ngày vào','Ngày ra','Hướng điều trị','Kiểm nhận hồ sơ','Đánh giá P.KHTH','Lỗi','Ghi chú','Người kiểm tra']]
+      .concat(rows.map(r=>[r.ma,r.hoTen,r.namSinh,r.gioi,r.diaChi,r.khoa,fmtD(r.ngayVao),fmtD(r.ngayRa),r.huong,r.giao==='dat'?'Đã nhận '+fmtD(r.ngayGiao):'Chưa nhận',r.danhGia==='dat'?'Đạt':r.danhGia==='khong'?'Không đạt':'Chưa đánh giá',(r.loi||[]).join('; '),r.ghiChu||'',who(r.nguoiKT)]));
     const byK=groupKhoa(rows);
     const tk=[['Khoa','Ra viện','Đã đánh giá','Tỷ lệ đánh giá (%)','Đạt','Không đạt','Tỷ lệ đạt (%)']].concat(Object.entries(byK).sort((a,b)=>a[0].localeCompare(b[0],'vi')).map(([k,o])=>[k,o.n,o.d,pct(o.d,o.n),o.d-o.k,o.k,pct(o.d-o.k,o.d)]));
     const ec={};rows.forEach(r=>(r.loi||[]).forEach(l=>ec[l]=(ec[l]||0)+1));
     const lo=[['Lỗi','Số hồ sơ']].concat(Object.entries(ec).sort((a,b)=>b[1]-a[1]));
     const wb=XLSX.utils.book_new();
     const add=(d,n,w)=>{const ws=XLSX.utils.aoa_to_sheet(d);ws['!cols']=w.map(x=>({wch:x}));XLSX.utils.book_append_sheet(wb,ws,n)};
-    add(tk,'Theo khoa',[44,9,9,13,11,7,10,13]);add(ct,'Chi tiết',[13,26,11,8,36,40,17,17,14,14,50,40,20]);add(lo,'Lỗi thường gặp',[60,10]);
+    add(tk,'Theo khoa',[44,9,9,13,11,7,10,13]);add(ct,'Chi tiết',[13,26,11,8,36,40,17,17,14,18,14,50,40,20]);add(lo,'Lỗi thường gặp',[60,10]);
     const ms=kyMonths();XLSX.writeFile(wb,`Kiem-tra-HSBA_${ms[0]}${ms.length>1?'_den_'+ms[ms.length-1]:''}.xlsx`);
   }catch(e){toast('Không xuất được file: '+(e.message||e))}
   finally{b.disabled=false}
