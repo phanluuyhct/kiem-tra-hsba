@@ -243,14 +243,13 @@ body{font-family:var(--f-body);min-height:100vh;padding-top:env(safe-area-inset-
       <table id="tblHoSo">
         <thead><tr>
           <th style="width:34px"><input type="checkbox" id="chkAll" aria-label="Chọn tất cả"></th>
-          <th>Mã hồ sơ</th><th>Họ tên</th><th>Ngày ra</th><th>Hướng ĐT</th><th>Giao hồ sơ</th><th>Đánh giá</th><th>Lỗi ghi nhận</th><th>Người KT</th>
+          <th>Mã hồ sơ</th><th>Họ tên</th><th>Ngày ra</th><th>Hướng ĐT</th><th>Đánh giá P.KHTH</th><th>Lỗi ghi nhận</th><th>Người KT</th>
         </tr></thead>
-        <tbody id="tbody"><tr><td colspan="9" class="empty">Đang tải…</td></tr></tbody>
+        <tbody id="tbody"><tr><td colspan="8" class="empty">Đang tải…</td></tr></tbody>
       </table>
     </div>
     <div class="bulk" id="bulk" hidden>
       <span id="bulkN"></span>
-      <button class="btn good small" type="button" data-bulk="giao">Đã nhận hồ sơ (giao đạt)</button>
       <button class="btn good small" type="button" data-bulk="danhgia">Đánh giá Đạt</button>
       <button class="btn small" type="button" data-bulk="clear">Bỏ chọn</button>
     </div>
@@ -272,14 +271,14 @@ body{font-family:var(--f-body);min-height:100vh;padding-top:env(safe-area-inset-
       <h2>Theo khoa</h2>
       <div class="tbl-wrap" style="border:0">
         <table id="tblKhoa" style="min-width:760px">
-          <thead><tr><th>Khoa</th><th class="num">Ra viện</th><th class="num">Đã giao</th><th>Tỷ lệ giao</th><th class="num">Đã đánh giá</th><th class="num">Không đạt</th><th>Tỷ lệ đạt</th></tr></thead>
+          <thead><tr><th>Khoa</th><th class="num">Ra viện</th><th class="num">Đã đánh giá</th><th>Tỷ lệ đánh giá</th><th class="num">Không đạt</th><th>Tỷ lệ đạt</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
     </div>
     <div class="two">
       <div class="panel"><h2>Lỗi gặp nhiều nhất</h2><ol class="errs" id="errs"></ol></div>
-      <div class="panel"><h2>Hồ sơ chưa giao quá 7 ngày</h2><div id="overdue"></div></div>
+      <div class="panel"><h2>Hồ sơ chưa đánh giá quá 7 ngày</h2><div id="overdue"></div></div>
     </div>
   </section>
 
@@ -322,14 +321,7 @@ body{font-family:var(--f-body);min-height:100vh;padding-top:env(safe-area-inset-
   <div class="db">
     <dl class="kv" id="dInfo"></dl>
     <div class="step">
-      <h3>1. Kiểm tra giao hồ sơ</h3>
-      <div class="row2">
-        <div class="seg" id="segGiao"><button type="button" data-v="dat">Đạt</button><button type="button" data-v="khong">Không đạt</button><button type="button" data-v="">Chưa giao</button></div>
-        <label class="f" style="width:160px">Ngày giao<input type="date" id="dNgayGiao"></label>
-      </div>
-    </div>
-    <div class="step">
-      <h3>2. Đánh giá của P.KHTH</h3>
+      <h3>Đánh giá của P.KHTH</h3>
       <div class="seg" id="segDG"><button type="button" data-v="dat">Đạt</button><button type="button" data-v="khong">Không đạt</button><button type="button" data-v="">Chưa đánh giá</button></div>
     </div>
     <div class="step"><h3>Lỗi ghi nhận</h3><div class="tags" id="dTags"></div></div>
