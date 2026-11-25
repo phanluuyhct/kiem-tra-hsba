@@ -282,12 +282,12 @@ function parseSheet(rows){
   const hi=rows.findIndex(r=>r.some(c=>/mã\s*(hồ sơ|vào viện|bệnh án|ba)/i.test(c))&&r.some(c=>/ngày\s*ra/i.test(c)));
   if(hi<0)throw new Error('không tìm thấy dòng tiêu đề có cột “Mã hồ sơ” và “Ngày ra”');
   const H=rows[hi].map(c=>String(c).toLowerCase());const ix=re=>H.findIndex(c=>re.test(c));
-  const c={ma:ix(/mã\s*(hồ sơ|vào viện|bệnh án|ba)/),ten:ix(/họ.*tên/),ns:ix(/năm sinh|ngày sinh/),gt:ix(/giớ/),khoa:ix(/^khoa/),vao:ix(/ngày\s*vào/),ra:ix(/ngày\s*ra/),h:ix(/hướng/)};
+  const c={ma:ix(/mã\s*(hồ sơ|vào viện|bệnh án|ba)/),ten:ix(/họ.*tên/),ns:ix(/năm sinh|ngày sinh/),gt:ix(/giớ/),khoa:ix(/^khoa/),vao:ix(/ngày\s*vào/),ra:ix(/ngày\s*ra/),h:ix(/hướng/),dc:ix(/địa\s*chỉ|dia\s*chi/)};
   const out=[];let khoa='';
   rows.slice(hi+1).forEach(r=>{const first=String(r.find(x=>String(x).trim())||'').trim();
     const m=first.match(/^(.*\S)\s*-\s*\d+\s*NB\s*$/);if(m&&!/^Tổng/.test(first)){khoa=m[1];return}
     const ma=String(r[c.ma]||'').replace(/\D/g,'');if(!ma||ma.length<6)return;
-    out.push({ma,hoTen:String(r[c.ten]||'').trim(),namSinh:String(r[c.ns]??'').trim(),gioi:String(r[c.gt]??'').trim(),khoa:c.khoa>=0&&r[c.khoa]?String(r[c.khoa]).trim():khoa,ngayVao:normDate(r[c.vao]),ngayRa:normDate(r[c.ra]),huong:String(r[c.h]??'').replace(/\s+/g,' ').trim()});});
+    out.push({ma,hoTen:String(r[c.ten]||'').trim(),namSinh:String(r[c.ns]??'').trim(),gioi:String(r[c.gt]??'').trim(),khoa:c.khoa>=0&&r[c.khoa]?String(r[c.khoa]).trim():khoa,ngayVao:normDate(r[c.vao]),ngayRa:normDate(r[c.ra]),huong:String(r[c.h]??'').replace(/\s+/g,' ').trim(),diaChi:c.dc>=0?String(r[c.dc]??'').replace(/\s+/g,' ').trim():''});});
   return out;
 }
 let daCo=new Map(); // ma -> {id, coTen}
@@ -298,29 +298,31 @@ async function showPreview(){
   const seen=new Set();let trungFile=0;parsed=parsed.filter(r=>{if(seen.has(r.ma)){trungFile++;return false}seen.add(r.ma);return true});
   $('impMsg').innerHTML='<span class="muted">Đang đối chiếu với hồ sơ đã có…</span>';
   daCo=new Map();const mas=parsed.map(r=>r.ma);
-  try{for(let i=0;i<mas.length;i+=200){const {data,error}=await sb.from('hsba_ho_so').select('id,ma,ho_ten').in('ma',mas.slice(i,i+200));if(error)throw error;
-    (data||[]).forEach(x=>{const o=daCo.get(x.ma)||{ids:[],thieu:[]};o.ids.push(x.id);if(!x.ho_ten)o.thieu.push(x.id);daCo.set(x.ma,o)})}}
+  try{for(let i=0;i<mas.length;i+=200){const {data,error}=await sb.from('hsba_ho_so').select('id,ma,ho_ten'+(coDiaChi?',dia_chi':'')).in('ma',mas.slice(i,i+200));if(error)throw error;
+    (data||[]).forEach(x=>{const o=daCo.get(x.ma)||{ids:[],thieu:[],thieuDc:[]};o.ids.push(x.id);if(!x.ho_ten)o.thieu.push(x.id);else if(coDiaChi&&!x.dia_chi)o.thieuDc.push(x.id);daCo.set(x.ma,o)})}}
   catch(e){$('impMsg').innerHTML=`<span class="err">Không đối chiếu được với dữ liệu: ${esc(e.message||e)}</span>`;return}
-  const moi=parsed.filter(r=>!daCo.has(r.ma)),trung=parsed.length-moi.length,bosung=parsed.filter(r=>daCo.has(r.ma)&&daCo.get(r.ma).thieu.length).length;
+  const moi=parsed.filter(r=>!daCo.has(r.ma)),trung=parsed.length-moi.length,bosung=parsed.filter(r=>daCo.has(r.ma)&&daCo.get(r.ma).thieu.length).length,bosungDc=parsed.filter(r=>r.diaChi&&daCo.has(r.ma)&&daCo.get(r.ma).thieuDc.length).length;
   const byM={};moi.forEach(r=>{const ym=r.ngayRa.slice(0,7);byM[ym]=(byM[ym]||0)+1});
   $('impMsg').innerHTML=`Đọc được <b>${parsed.length+trungFile}</b> người bệnh. <b>${moi.length}</b> hồ sơ mới sẽ được thêm${moi.length?` (${Object.entries(byM).map(([m,n])=>`${ymLabel(m).toLowerCase()}: ${n}`).join(', ')})`:''}.`+
-    (trung?`<br><b>${trung}</b> hồ sơ trùng số hồ sơ đã có → tự động bỏ qua${bosung?`, trong đó ${bosung} hồ sơ cũ chưa có họ tên sẽ được bổ sung thông tin người bệnh`:''}.`:'')+
+    (trung?`<br><b>${trung}</b> hồ sơ trùng số hồ sơ đã có → tự động bỏ qua${bosung?`, trong đó ${bosung} hồ sơ cũ chưa có họ tên sẽ được bổ sung thông tin người bệnh`:''}${bosungDc?`, ${bosungDc} hồ sơ chưa có địa chỉ sẽ được bổ sung địa chỉ`:''}.`:'')+
     (trungFile?`<br>${trungFile} dòng lặp lại trong file đã bị loại.`:'');
   $('impPrev').innerHTML=`<table><thead><tr><th>Mã hồ sơ</th><th>Họ tên</th><th>Khoa</th><th>Ngày ra</th><th>Tình trạng</th></tr></thead><tbody>`+
-    parsed.map(r=>{const d=daCo.get(r.ma);return `<tr${d?' style="opacity:.55"':''}><td class="mono">${esc(r.ma)}</td><td>${esc(r.hoTen)}</td><td>${esc(r.khoa)}</td><td class="mono">${fmtD(r.ngayRa)}</td><td>${d?(d.thieu.length?'Trùng – bổ sung tên':'Trùng – bỏ qua'):'<b>Mới</b>'}</td></tr>`}).join('')+'</tbody></table>';
-  $('impPrev').hidden=false;$('impGo').disabled=!(moi.length||bosung);
-  $('impGo').textContent=moi.length?`Thêm ${moi.length} hồ sơ mới`:bosung?'Bổ sung thông tin':'Không có hồ sơ mới';
+    parsed.map(r=>{const d=daCo.get(r.ma);return `<tr${d?' style="opacity:.55"':''}><td class="mono">${esc(r.ma)}</td><td>${esc(r.hoTen)}</td><td>${esc(r.khoa)}</td><td class="mono">${fmtD(r.ngayRa)}</td><td>${d?(d.thieu.length?'Trùng – bổ sung tên':d.thieuDc.length&&r.diaChi?'Trùng – bổ sung địa chỉ':'Trùng – bỏ qua'):'<b>Mới</b>'}</td></tr>`}).join('')+'</tbody></table>';
+  $('impPrev').hidden=false;$('impGo').disabled=!(moi.length||bosung||bosungDc);
+  $('impGo').textContent=moi.length?`Thêm ${moi.length} hồ sơ mới`:(bosung||bosungDc)?'Bổ sung thông tin':'Không có hồ sơ mới';
 }
 $('impGo').addEventListener('click',async()=>{
   const b=$('impGo');b.disabled=true;
   const moiP=parsed.filter(r=>!daCo.has(r.ma));
   const info=r=>({ho_ten:r.hoTen,nam_sinh:r.namSinh,gioi:r.gioi,ngay_vao:r.ngayVao,huong:r.huong,...(coDiaChi?{dia_chi:r.diaChi||null}:{})});
   const bosung=parsed.filter(r=>daCo.has(r.ma)&&daCo.get(r.ma).thieu.length);
+  const bosungDc=parsed.filter(r=>r.diaChi&&daCo.has(r.ma)&&daCo.get(r.ma).thieuDc.length);
   const rows=moiP.map(r=>({ma:r.ma,ngay_ra:r.ngayRa.slice(0,10),gio_ra:r.ngayRa.slice(11)||null,ho_ten:r.hoTen,nam_sinh:r.namSinh,gioi:r.gioi,khoa:r.khoa,ngay_vao:r.ngayVao,huong:r.huong,giao:'dat',ngay_giao:r.ngayRa.slice(0,10),danh_gia:'dat',nguoi_nhap:me.id,nguon:'HIS',...(coDiaChi?{dia_chi:r.diaChi||null}:{})}));
   try{
     for(let i=0;i<rows.length;i+=500){const {error}=await sb.from('hsba_ho_so').upsert(rows.slice(i,i+500),{onConflict:'ma,ngay_ra',ignoreDuplicates:true});if(error)throw error;b.textContent=`Đang lưu ${Math.min(i+500,rows.length)}/${rows.length}…`}
     for(const r of bosung){const {error}=await sb.from('hsba_ho_so').update(info(r)).in('id',daCo.get(r.ma).thieu);if(error)throw error}
-    toast(`Đã thêm ${rows.length} hồ sơ mới`+(parsed.length-rows.length?`, bỏ qua ${parsed.length-rows.length} hồ sơ trùng`:'')+(bosung.length?`, bổ sung tên ${bosung.length} hồ sơ cũ`:''));closeAll();
+    for(const r of bosungDc){const {error}=await sb.from('hsba_ho_so').update({dia_chi:r.diaChi}).in('id',daCo.get(r.ma).thieuDc);if(error)throw error}
+    toast(`Đã thêm ${rows.length} hồ sơ mới`+(parsed.length-rows.length?`, bỏ qua ${parsed.length-rows.length} hồ sơ trùng`:'')+(bosung.length?`, bổ sung tên ${bosung.length} hồ sơ cũ`:'')+(bosungDc.length?`, bổ sung địa chỉ ${bosungDc.length} hồ sơ`:''));closeAll();
     const ms=[...new Set(rows.map(r=>r.ngay_ra.slice(0,7)))];
     if(ms.length===1&&ms[0]!==curYM){curYM=ms[0];if(![...$('selThang').options].some(o=>o.value===curYM))$('selThang').insertAdjacentHTML('beforeend',`<option value="${curYM}">${ymLabel(curYM)}</option>`);$('selThang').value=curYM}
     loadMonth();
