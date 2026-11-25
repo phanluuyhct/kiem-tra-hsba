@@ -215,7 +215,7 @@ function openDrawer(k){
   $('dTitle').textContent=r.hoTen||'Hồ sơ '+r.ma;$('dSub').textContent=r.ma;
   $('dInfo').innerHTML=[['Khoa',r.khoa],['Năm sinh',r.namSinh],['Giới tính',r.gioi],['Địa chỉ',r.diaChi],['Ngày vào',fmtD(r.ngayVao)],['Ngày ra',fmtD(r.ngayRa)],['Hướng điều trị',r.huong],['Nguồn',r.nguon==='Google Sheet'?'Dữ liệu cũ từ Google Sheet':'HIS']].filter(x=>x[1]).map(([a,b])=>`<dt>${a}</dt><dd>${esc(b)}</dd>`).join('');
   $('dGhiChu').value=draft.ghiChu;$('dErr').textContent='';
-  $('dNgayNhan').value=r.ngayGiao||'';$('dNgayNhan').min=(r.ngayRa||'').slice(0,10);$('dNgayNhan').max=today();
+  $('dNgayNhan').value=r.ngayGiao||(r.ngayRa||'').slice(0,10);$('dNgayNhan').min=(r.ngayRa||'').slice(0,10);$('dNgayNhan').max=today();
   fillDrawer();fillDrawerMeta(r);
   $('drawer').hidden=false;$('scrim').hidden=false;$('segDG').querySelector('button').focus();
 }
@@ -316,7 +316,7 @@ $('impGo').addEventListener('click',async()=>{
   const moiP=parsed.filter(r=>!daCo.has(r.ma));
   const info=r=>({ho_ten:r.hoTen,nam_sinh:r.namSinh,gioi:r.gioi,ngay_vao:r.ngayVao,huong:r.huong,...(coDiaChi?{dia_chi:r.diaChi||null}:{})});
   const bosung=parsed.filter(r=>daCo.has(r.ma)&&daCo.get(r.ma).thieu.length);
-  const rows=moiP.map(r=>({ma:r.ma,ngay_ra:r.ngayRa.slice(0,10),gio_ra:r.ngayRa.slice(11)||null,ho_ten:r.hoTen,nam_sinh:r.namSinh,gioi:r.gioi,khoa:r.khoa,ngay_vao:r.ngayVao,huong:r.huong,nguoi_nhap:me.id,nguon:'HIS',...(coDiaChi?{dia_chi:r.diaChi||null}:{})}));
+  const rows=moiP.map(r=>({ma:r.ma,ngay_ra:r.ngayRa.slice(0,10),gio_ra:r.ngayRa.slice(11)||null,ho_ten:r.hoTen,nam_sinh:r.namSinh,gioi:r.gioi,khoa:r.khoa,ngay_vao:r.ngayVao,huong:r.huong,giao:'dat',ngay_giao:r.ngayRa.slice(0,10),danh_gia:'dat',nguoi_nhap:me.id,nguon:'HIS',...(coDiaChi?{dia_chi:r.diaChi||null}:{})}));
   try{
     for(let i=0;i<rows.length;i+=500){const {error}=await sb.from('hsba_ho_so').upsert(rows.slice(i,i+500),{onConflict:'ma,ngay_ra',ignoreDuplicates:true});if(error)throw error;b.textContent=`Đang lưu ${Math.min(i+500,rows.length)}/${rows.length}…`}
     for(const r of bosung){const {error}=await sb.from('hsba_ho_so').update(info(r)).in('id',daCo.get(r.ma).thieu);if(error)throw error}
