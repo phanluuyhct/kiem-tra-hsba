@@ -77,7 +77,12 @@ table{border-collapse:collapse;width:100%;font-size:13.8px}
 .nhan-d{width:150px;padding:4px 6px;font-size:13px}
 .nhan-d.trong{border-color:var(--warn);background:var(--warn-soft)}
 #tblHoSo td{vertical-align:top}
-.dc{max-width:230px;font-size:12.5px}
+.dc{font-size:12.5px;line-height:1.35}
+.hs-wrap{max-height:calc(100vh - 140px);overflow:auto}
+#tblHoSo thead th{z-index:3;box-shadow:inset 0 -1px 0 var(--line)}
+#tblHoSo .col-dc{width:320px;min-width:280px}
+#tblHoSo .col-huong{width:120px;min-width:110px}
+#tblHoSo td.huong{font-size:12.5px;line-height:1.35}
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
 th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--surface-2);font-weight:600;position:sticky;top:0}
 tbody tr:last-child td{border-bottom:0}
@@ -258,11 +263,11 @@ body.chi-xem .chi-xem-note{display:block;background:var(--surface-2);border-radi
     </div>
     <div class="chi-xem-note" id="chiXemNote"></div>
     <div class="chips" id="chips"></div>
-    <div class="tbl-wrap">
+    <div class="tbl-wrap hs-wrap">
       <table id="tblHoSo">
         <thead><tr>
           <th style="width:34px"><input type="checkbox" id="chkAll" aria-label="Chọn tất cả"></th>
-          <th class="num">STT</th><th>Mã hồ sơ</th><th>Họ tên</th><th>Năm sinh</th><th>Giới tính</th><th>Địa chỉ</th><th>Ngày vào</th><th>Ngày ra</th><th>Hướng điều trị</th><th>Ngày nhận hồ sơ</th><th>Đánh giá</th><th>Nội dung lưu ý</th>
+          <th class="num">STT</th><th>Mã hồ sơ</th><th>Họ tên</th><th>Năm sinh</th><th>Giới tính</th><th class="col-dc">Địa chỉ</th><th>Ngày vào</th><th>Ngày ra</th><th class="col-huong">Hướng điều trị</th><th>Ngày nhận hồ sơ</th><th>Đánh giá</th><th>Nội dung lưu ý</th>
         </tr></thead>
         <tbody id="tbody"><tr><td colspan="13" class="empty">Đang tải…</td></tr></tbody>
       </table>
@@ -421,6 +426,6 @@ function parseHisPages(pages){ // pages: [{w, items:[{x,y,h,s}]}]
 
 
 </script>
-<script src="app.js?v=202611251345"></script>
+<script src="app.js?v=202611251350"></script>
 </body>
 </html>

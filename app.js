@@ -153,7 +153,7 @@ function renderList(){
       <td class="num">${stt}</td><td class="mono">${esc(r.ma)}</td>
       <td style="font-weight:600">${r.hoTen?esc(r.hoTen.toUpperCase()):'<span class="muted" style="font-weight:400">Dữ liệu cũ</span>'}</td>
       <td class="mono">${esc(r.namSinh||'')}</td><td>${esc(r.gioi||'')}</td><td class="dc">${esc(r.diaChi||'')}</td>
-      <td class="mono">${dt(r.ngayVao)}</td><td class="mono">${dt(r.ngayRa)}</td><td>${esc(r.huong||'')}</td>
+      <td class="mono">${dt(r.ngayVao)}</td><td class="mono">${dt(r.ngayRa)}</td><td class="huong">${esc(r.huong||'')}</td>
       <td><input type="date" class="nhan-d${r.ngayGiao?'':' trong'}" data-nhan="${r.k}" ${isKhoa?'disabled':''} value="${r.ngayGiao||''}" min="${(r.ngayRa||'').slice(0,10)}" max="${today()}" aria-label="Ngày nhận hồ sơ ${esc(r.ma)}" title="Để trống nếu khoa chưa giao hồ sơ"></td>
       <td>${r.danhGia?`<span class="st ${r.danhGia}">${r.danhGia==='dat'?'Đạt':'Không đạt'}</span>`:'<span class="st chua">Chưa đánh giá</span>'}</td>
       <td class="loi-mini">${esc(loi)}</td></tr>`);
