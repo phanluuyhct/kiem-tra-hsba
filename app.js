@@ -460,3 +460,6 @@ window.addEventListener('hashchange',route);
 
 start();
 })();
+// Giữ bảng hồ sơ vừa khung màn hình để dòng tiêu đề luôn cố định khi cuộn
+function coBang(){const w=document.querySelector('.hs-wrap');if(!w||!w.offsetParent)return;const top=w.getBoundingClientRect().top+window.scrollY;w.style.maxHeight=Math.max(320,window.innerHeight-top-16)+'px'}
+window.addEventListener('resize',coBang);new ResizeObserver(coBang).observe(document.body);setTimeout(coBang,300);
