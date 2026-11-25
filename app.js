@@ -210,7 +210,7 @@ $('scanForm').addEventListener('submit',async e=>{e.preventDefault();const v=$('
 /* ---------- Ngăn sửa hồ sơ ---------- */
 let openK=null,draft=null;
 function openDrawer(k){
-  const r=recs.get(k);if(!r)return;openK=k;draft={giao:r.giao||'',ngayGiao:r.ngayGiao||'',danhGia:r.danhGia||'',loi:[...(r.loi||[])],ghiChu:r.ghiChu||''};
+  const r=recs.get(k);if(!r)return;openK=k;$('dLoiQ').value='';draft={giao:r.giao||'',ngayGiao:r.ngayGiao||'',danhGia:r.danhGia||'',loi:[...(r.loi||[])],ghiChu:r.ghiChu||''};
   if(!draft.danhGia){draft.danhGia=draft.loi.length?'khong':'dat'}
   $('dTitle').textContent=r.hoTen||'Hồ sơ '+r.ma;$('dSub').textContent=r.ma;
   $('dInfo').innerHTML=[['Khoa',r.khoa],['Năm sinh',r.namSinh],['Giới tính',r.gioi],['Địa chỉ',r.diaChi],['Ngày vào',fmtD(r.ngayVao)],['Ngày ra',fmtD(r.ngayRa)],['Hướng điều trị',r.huong],['Nguồn',r.nguon==='Google Sheet'?'Dữ liệu cũ từ Google Sheet':'HIS']].filter(x=>x[1]).map(([a,b])=>`<dt>${a}</dt><dd>${esc(b)}</dd>`).join('');
@@ -224,11 +224,22 @@ $('dNhanHomNay').addEventListener('click',()=>{$('dNgayNhan').value=today()});
 function fillDrawer(){
   $('segDG').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===draft.danhGia)));
   const all=[...new Set([...loiDM.map(l=>l.ten),...draft.loi])];
-  $('dTags').innerHTML=all.length?all.map(t=>`<button type="button" class="tag" data-tag="${esc(t)}" aria-pressed="${draft.loi.includes(t)}">${esc(t)}</button>`).join(''):'<span class="muted">Danh mục lỗi đang trống.</span>';
+  renderLoiList();
 }
+const boDau=t=>(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase();
+function renderLoiList(){
+  const all=[...new Set([...loiDM.map(l=>l.ten),...draft.loi])];
+  const q=boDau($('dLoiQ').value.trim());const ws=q.split(/\s+/).filter(Boolean);
+  const hit=t=>{const n=boDau(t);return ws.every(w=>n.includes(w))};
+  const ds=all.filter(t=>draft.loi.includes(t)||hit(t)).sort((a,b)=>draft.loi.includes(b)-draft.loi.includes(a));
+  $('dLoiDem').textContent=draft.loi.length?`(đã chọn ${draft.loi.length})`:'';
+  const hl=t=>{if(!ws.length)return esc(t);const n=boDau(t);let m=new Array(t.length).fill(false);ws.forEach(w=>{let i=n.indexOf(w);while(i>=0){for(let k=i;k<i+w.length;k++)m[k]=true;i=n.indexOf(w,i+1)}});let o='',on=false;for(let i=0;i<t.length;i++){if(m[i]!==on){o+=m[i]?'<mark>':'</mark>';on=m[i]}o+=esc(t[i])}return o+(on?'</mark>':'')};
+  $('dTags').innerHTML=!all.length?'<span class="muted">Danh mục lỗi đang trống.</span>':ds.length?ds.map(t=>{const on=draft.loi.includes(t);return `<label class="loi-item${on?' on':''}"><input type="checkbox" data-tag="${esc(t)}"${on?' checked':''}${isKhoa?' disabled':''}><span>${hl(t)}</span></label>`}).join(''):'<span class="muted" style="padding:6px 8px">Không có lỗi nào khớp từ khóa.</span>';
+}
+$('dLoiQ').addEventListener('input',renderLoiList);
 $('segDG').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;draft.danhGia=b.dataset.v;
   $('dErr').textContent=draft.danhGia==='dat'&&draft.loi.length?'Hồ sơ đang có lỗi được chọn mà đánh giá Đạt. Kiểm tra lại nếu cần.':'';fillDrawer()});
-$('dTags').addEventListener('click',e=>{const b=e.target.closest('[data-tag]');if(!b)return;const t=b.dataset.tag;draft.loi=draft.loi.includes(t)?draft.loi.filter(x=>x!==t):[...draft.loi,t];
+$('dTags').addEventListener('change',e=>{const b=e.target.closest('[data-tag]');if(!b)return;const t=b.dataset.tag;draft.loi=draft.loi.includes(t)?draft.loi.filter(x=>x!==t):[...draft.loi,t];
   draft.danhGia=draft.loi.length?'khong':'dat';$('dErr').textContent='';fillDrawer()});
 $('dSave').addEventListener('click',async()=>{
   draft.ghiChu=$('dGhiChu').value.trim();const r=recs.get(openK);

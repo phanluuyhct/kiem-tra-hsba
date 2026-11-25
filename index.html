@@ -170,9 +170,16 @@ body{font-family:var(--f-body);min-height:100vh;padding-top:env(safe-area-inset-
 .cb-row span{flex:1;min-width:0}
 .cb-row select{width:auto}
 body.chi-xem #btnImport,body.chi-xem #bulk,body.chi-xem #dSave,body.chi-xem #dNhanHomNay,body.chi-xem #tblHoSo thead th:first-child,body.chi-xem #tblHoSo tr.row td:first-child,body.chi-xem [data-tab="danh-muc"]{display:none!important}
-body.chi-xem .drawer .seg,body.chi-xem .drawer .tags{pointer-events:none}
+body.chi-xem .drawer .seg{pointer-events:none}body.chi-xem #dLoiQ{display:none}
 .chi-xem-note{display:none}
 body.chi-xem .chi-xem-note{display:block;background:var(--surface-2);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--muted);margin-bottom:10px}
+.loi-q{width:100%;margin-bottom:8px}
+.loi-list{display:flex;flex-direction:column;flex-wrap:nowrap;gap:2px;max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:4px}
+.loi-item{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:14px;line-height:1.35}
+.loi-item:hover{background:var(--surface-2)}
+.loi-item input{margin-top:2px;flex:none;width:16px;height:16px}
+.loi-item.on{color:var(--bad);font-weight:600;background:var(--bad-soft)}
+.loi-item mark{background:#ffe58a;color:inherit;border-radius:2px}
 </style>
 </head>
 <body>
@@ -337,7 +344,7 @@ body.chi-xem .chi-xem-note{display:block;background:var(--surface-2);border-radi
       <h3>Đánh giá của P.KHTH</h3>
       <div class="seg" id="segDG"><button type="button" data-v="dat">Đạt</button><button type="button" data-v="khong">Không đạt</button><button type="button" data-v="">Chưa đánh giá</button></div>
     </div>
-    <div class="step"><h3>Lỗi ghi nhận</h3><div class="tags" id="dTags"></div></div>
+    <div class="step"><h3>Lỗi ghi nhận <span class="muted" id="dLoiDem"></span></h3><input type="search" id="dLoiQ" class="loi-q" placeholder="Gõ từ khóa để tìm lỗi…" autocomplete="off"><div class="loi-list tags" id="dTags"></div></div>
     <label class="f">Ghi chú, nội dung lưu ý<textarea id="dGhiChu" placeholder="VD: Tờ điều trị ngày 18/11 thiếu chữ ký bác sĩ"></textarea></label>
     <div class="meta" id="dMeta"></div>
   </div>
@@ -414,6 +421,6 @@ function parseHisPages(pages){ // pages: [{w, items:[{x,y,h,s}]}]
 
 
 </script>
-<script src="app.js?v=202611231030"></script>
+<script src="app.js?v=202611250935"></script>
 </body>
 </html>
